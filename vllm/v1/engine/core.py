@@ -49,6 +49,10 @@ from vllm.v1.serial_utils import MsgpackDecoder, MsgpackEncoder
 from vllm.v1.structured_output import StructuredOutputManager
 from vllm.version import __version__ as VLLM_VERSION
 
+# import sys
+# sys.path.append("/data/lily/vllm-benchmark/")
+from benchmarks.profiler import sd_profiler
+
 logger = init_logger(__name__)
 
 POLLING_TIMEOUT_S = 2.5
@@ -220,7 +224,7 @@ class EngineCore:
 
     def add_request(self, request: Request, request_wave: int = 0):
         """Add request to the scheduler.
-        
+
         `request_wave`: indicate which wave of requests this is expected to
         belong to in DP case
         """
@@ -419,7 +423,7 @@ class EngineCore:
     def preprocess_add_request(
             self, request: EngineCoreRequest) -> tuple[Request, int]:
         """Preprocess the request.
-        
+
         This function could be directly used in input processing thread to allow
         request initialization running in parallel with Model forward
         """
