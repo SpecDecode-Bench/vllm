@@ -49,11 +49,6 @@ from vllm.v1.serial_utils import MsgpackDecoder, MsgpackEncoder
 from vllm.v1.structured_output import StructuredOutputManager
 from vllm.version import __version__ as VLLM_VERSION
 
-# import sys
-# sys.path.append("/data/lily/vllm-benchmark/")
-
-from benchmarks.profiler import sd_profiler
-
 logger = init_logger(__name__)
 
 POLLING_TIMEOUT_S = 2.5
@@ -225,7 +220,7 @@ class EngineCore:
 
     def add_request(self, request: Request, request_wave: int = 0):
         """Add request to the scheduler.
-
+        
         `request_wave`: indicate which wave of requests this is expected to
         belong to in DP case
         """
@@ -289,26 +284,13 @@ class EngineCore:
         # or finished and not yet removed from the batch.
         if not self.scheduler.has_requests():
             return {}, False
-        # Profile start step
-        sd_profiler.model = self.model_executor.model_config.model
-        sd_profiler.speculative_config = self.scheduler.vllm_config.speculative_config
-        sd_profiler.start_step()
         scheduler_output = self.scheduler.schedule()
-        num_speculative_tokens = 0
-        for spec_ids in scheduler_output.scheduled_spec_decode_tokens:
-            num_speculative_tokens += len(spec_ids)
-        sd_profiler.set_step_info(
-            num_speculative_tokens=num_speculative_tokens,
-            num_batched_tokens=scheduler_output.total_num_scheduled_tokens,
-        )
         model_output = self.execute_model_with_error_logging(
             self.model_executor.execute_model,  # type: ignore
             scheduler_output)
         engine_core_outputs = self.scheduler.update_from_output(
             scheduler_output, model_output)  # type: ignore
 
-        # Profile end step
-        sd_profiler.end_step()
         return (engine_core_outputs,
                 scheduler_output.total_num_scheduled_tokens > 0)
 
@@ -437,7 +419,7 @@ class EngineCore:
     def preprocess_add_request(
             self, request: EngineCoreRequest) -> tuple[Request, int]:
         """Preprocess the request.
-
+        
         This function could be directly used in input processing thread to allow
         request initialization running in parallel with Model forward
         """
