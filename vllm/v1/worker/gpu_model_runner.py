@@ -1844,6 +1844,7 @@ class GPUModelRunner(LoRAModelRunnerMixin, KVConnectorModelRunnerMixin):
             assert isinstance(self.drafter, NgramProposer)
             spec_token_ids = self.propose_ngram_draft_token_ids(
                 sampled_token_ids)
+            draft_probs, draft_entropy = [], []
         elif self.speculative_config.method == "medusa":
             assert isinstance(self.drafter, MedusaProposer)
             if sample_hidden_states.shape[0] == len(sampled_token_ids):

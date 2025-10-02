@@ -46,10 +46,16 @@ def load_data(datapath, tokenizer, verbose=False):
         lines = f.readlines()
         for line in lines:
             data = json.loads(line)
+            probs = data['acc'].get('acc_prob', None)
+            entropies = data['acc'].get('acc_entropy', None)
+            if probs == []: # we return empty list for ngram
+                probs = None
+            if entropies == []: # we return empty list for ngram
+                entropies = None
             stat = AccStats(
                 lens=data['acc']['acc_len'],
-                probs=data['acc'].get('acc_prob', None),
-                entropies=data['acc'].get('acc_entropy', None)
+                probs=probs,
+                entropies=probs
             )
             acceptance_stats.append(stat)
             if verbose:
