@@ -116,6 +116,8 @@ class ModelRunnerOutput:
     # req_id -> num_nans_in_logits
     num_nans_in_logits: Optional[dict[str, int]] = None
 
+    acceptance_stats: Optional[dict[str, list]] = None
+
 
 EMPTY_MODEL_RUNNER_OUTPUT = ModelRunnerOutput(req_ids=[],
                                               req_id_to_index={},

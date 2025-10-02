@@ -7,6 +7,8 @@ from typing import Optional
 import numpy as np
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
+from torch.distributions import Categorical
 
 from vllm.attention.layer import Attention
 from vllm.config import (CompilationLevel, VllmConfig,
@@ -212,15 +214,29 @@ class EagleProposer:
                 hidden_states=hidden_states,
                 common_attn_metadata=common_attn_metadata,
             )
+            # TODO: handle the case if TreeAttention is used?
             # [batch_size, num_tree_tokens]
             return torch.cat(draft_token_ids_list, dim=1)
 
+
+        all_draft_probs = []
+        all_draft_entropy = []
+
+        probs = F.softmax(logits, dim=-1, dtype=torch.float32)
+
         draft_token_ids = logits.argmax(dim=-1)
+
+        # Get the probabilities of the draft tokens.
+        draft_probs = probs.gather(dim=1, index=draft_token_ids.unsqueeze(1))
+        dist = Categorical(logits=logits)
+        entropy = dist.entropy().unsqueeze(-1)  # [batch_size, 1]
+        all_draft_probs.append(draft_probs)
+        all_draft_entropy.append(entropy)
 
         # Early exit if there is only one draft token to be generated.
         if self.num_speculative_tokens == 1:
             # [batch_size, 1]
-            return draft_token_ids.view(-1, 1)
+            return draft_token_ids.view(-1, 1), all_draft_probs, all_draft_entropy
 
         # TODO: Currently, MTP module released by deepseek only has
         # one layer. Adapt this code to support multiple layers once
@@ -321,9 +337,17 @@ class EagleProposer:
             draft_token_ids = logits.argmax(dim=-1)
             draft_token_ids_list.append(draft_token_ids)
 
+            probs = F.softmax(logits, dim=-1, dtype=torch.float32)
+            draft_probs = probs.gather(dim=1,
+                                       index=draft_token_ids.unsqueeze(1))
+            dist = Categorical(logits=logits)
+            entropy = dist.entropy().unsqueeze(-1)  # [batch_size, 1]
+            all_draft_probs.append(draft_probs)
+            all_draft_entropy.append(entropy)
+
         # [batch_size, num_speculative_tokens]
         draft_token_ids = torch.stack(draft_token_ids_list, dim=1)
-        return draft_token_ids
+        return draft_token_ids, all_draft_probs, all_draft_entropy
 
     def propose_tree(
         self,

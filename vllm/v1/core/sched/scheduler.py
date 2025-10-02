@@ -34,6 +34,7 @@ from vllm.v1.outputs import KVConnectorOutput, ModelRunnerOutput
 from vllm.v1.request import Request, RequestStatus
 from vllm.v1.spec_decode.metrics import SpecDecodingStats
 from vllm.v1.structured_output import StructuredOutputManager
+import json
 
 logger = init_logger(__name__)
 
@@ -766,6 +767,7 @@ class Scheduler(SchedulerInterface):
         num_scheduled_tokens = scheduler_output.num_scheduled_tokens
         pooler_outputs = model_runner_output.pooler_output
         num_nans_in_logits = model_runner_output.num_nans_in_logits
+        self.acceptance_stats = model_runner_output.acceptance_stats
 
         outputs: dict[int, list[EngineCoreOutput]] = defaultdict(list)
         spec_decoding_stats: Optional[SpecDecodingStats] = None
@@ -1018,6 +1020,17 @@ class Scheduler(SchedulerInterface):
             self._free_request(request)
 
     def _free_request(self, request: Request) -> Optional[dict[str, Any]]:
+        req_id = request.request_id
+        data = self.acceptance_stats.pop(req_id)
+        with open('acceptance_stats.jsonl', 'a') as f:
+            f.write(json.dumps({
+                "id": req_id,
+                "acc": data,
+                "prompt_token_ids": request.prompt_token_ids,
+                "generated_token_ids": request.output_token_ids._x
+                }))
+            f.write('\n')
+
         assert request.is_finished()
 
         delay_free_blocks, kv_xfer_params = self._connector_finished(request)

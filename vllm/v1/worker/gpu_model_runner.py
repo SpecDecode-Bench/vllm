@@ -348,6 +348,8 @@ class GPUModelRunner(LoRAModelRunnerMixin, KVConnectorModelRunnerMixin):
 
         self.reorder_batch_threshold: Optional[int] = None
 
+        self.acceptance_stats = {}
+
     def _init_model_kwargs(self, num_tokens: int):
         model_kwargs = dict[str, Any]()
         num_reqs = self.input_batch.num_reqs
@@ -1737,6 +1739,20 @@ class GPUModelRunner(LoRAModelRunnerMixin, KVConnectorModelRunnerMixin):
                 sampled_token_ids,
                 self.input_batch.vocab_size,
             )
+
+        for i, token_ids in enumerate(valid_sampled_token_ids):
+            req_id = self.input_batch.req_ids[i]
+            if req_id not in self.acceptance_stats:
+                self.acceptance_stats[req_id] = {
+                    'acc_len': [],
+                    'acc_prob': [],
+                    'acc_entropy': [],
+                }
+            self.acceptance_stats[req_id]['acc_len'].append(len(token_ids))
+        # Force 1 generated token per request.
+        for i, token_ids in enumerate(valid_sampled_token_ids):
+            valid_sampled_token_ids[i] = token_ids[:1]
+
         # Mask out the sampled tokens that should not be sampled.
         for i in discard_sampled_tokens_req_indices:
             valid_sampled_token_ids[i].clear()
@@ -1770,7 +1786,7 @@ class GPUModelRunner(LoRAModelRunnerMixin, KVConnectorModelRunnerMixin):
             spec_token_ids = None
         else:
             assert spec_decode_common_attn_metadata is not None
-            spec_token_ids = self.propose_draft_token_ids(
+            spec_token_ids, draft_probs, draft_entropy = self.propose_draft_token_ids(
                 scheduler_output,
                 valid_sampled_token_ids,
                 sampling_metadata,
@@ -1780,6 +1796,22 @@ class GPUModelRunner(LoRAModelRunnerMixin, KVConnectorModelRunnerMixin):
                 spec_decode_metadata,
                 spec_decode_common_attn_metadata,
             )
+
+        for req_id in self.input_batch.req_ids:
+            if req_id not in self.acceptance_stats:
+                self.acceptance_stats[req_id] = {
+                    'acc_len': [],
+                    'acc_prob': [],
+                    'acc_entropy': [],
+                }
+            req_index = self.input_batch.req_id_to_index[req_id]
+            step_probs, step_entropy = [], []
+            for prob, entropy in zip(draft_probs, draft_entropy):
+                step_probs.append(prob[req_index].item())
+                step_entropy.append(entropy[req_index].item())
+
+            self.acceptance_stats[req_id]['acc_prob'].append(step_probs)
+            self.acceptance_stats[req_id]['acc_entropy'].append(step_entropy)
 
         self.eplb_step()
 
@@ -1793,6 +1825,7 @@ class GPUModelRunner(LoRAModelRunnerMixin, KVConnectorModelRunnerMixin):
             pooler_output=[],
             kv_connector_output=kv_connector_output,
             num_nans_in_logits=num_nans_in_logits,
+            acceptance_stats=self.acceptance_stats,
         )
 
     def propose_draft_token_ids(
@@ -1889,7 +1922,7 @@ class GPUModelRunner(LoRAModelRunnerMixin, KVConnectorModelRunnerMixin):
                 mm_embeds = self._gather_mm_embeddings(scheduler_output,
                                                        shift_computed_tokens=1)
 
-            draft_token_ids = self.drafter.propose(
+            draft_token_ids, draft_probs, draft_entropy = self.drafter.propose(
                 target_token_ids=target_token_ids,
                 target_positions=target_positions,
                 target_hidden_states=target_hidden_states,
@@ -1899,7 +1932,7 @@ class GPUModelRunner(LoRAModelRunnerMixin, KVConnectorModelRunnerMixin):
                 mm_embeds=mm_embeds,
             )
             spec_token_ids = draft_token_ids.tolist()
-        return spec_token_ids
+        return spec_token_ids, draft_probs, draft_entropy
 
     def propose_ngram_draft_token_ids(
         self,
@@ -2249,7 +2282,7 @@ class GPUModelRunner(LoRAModelRunnerMixin, KVConnectorModelRunnerMixin):
                 - CUDAGraphMode.PIECEWISE: Piecewise cudagraph.
                 - CUDAGraphMode.FULL: Full cudagraph, attention metadata is
                     needed.
-            force_attention: If True, always create attention metadata. Used to 
+            force_attention: If True, always create attention metadata. Used to
                 warm up attention backend when mode is NONE.
             uniform_decode: If True, the batch is a uniform decode batch.
             skip_eplb: If True, skip EPLB state update.
