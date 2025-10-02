@@ -27,6 +27,8 @@ from benchmark_dataset import (
     ShareGPTDataset,
     SonnetDataset,
     VisionArenaDataset,
+    CNNDailyMailDataset,
+    GSM8KDataset,
 )
 from benchmark_utils import convert_to_pytorch_benchmark_format, write_to_json
 from vllm.engine.arg_utils import AsyncEngineArgs, EngineArgs
@@ -72,11 +74,19 @@ def run_vllm(
             )
         )
         sampling_params.append(
+            # SamplingParams(
+            #     n=n,
+            #     temperature=1.0,
+            #     top_p=1.0,
+            #     ignore_eos=True,
+            #     max_tokens=request.expected_output_len,
+            #     detokenize=not disable_detokenize,
+            # )
             SamplingParams(
                 n=n,
-                temperature=1.0,
+                temperature=0,
                 top_p=1.0,
-                ignore_eos=True,
+                ignore_eos=False,
                 max_tokens=request.expected_output_len,
                 detokenize=not disable_detokenize,
             )
@@ -143,11 +153,19 @@ def run_vllm_chat(
     for request in requests:
         prompts.append(request.prompt)
         sampling_params.append(
+            # SamplingParams(
+            #     n=n,
+            #     temperature=1.0,
+            #     top_p=1.0,
+            #     ignore_eos=True,
+            #     max_tokens=request.expected_output_len,
+            #     detokenize=not disable_detokenize,
+            # )
             SamplingParams(
                 n=n,
-                temperature=1.0,
+                temperature=0,
                 top_p=1.0,
-                ignore_eos=True,
+                ignore_eos=False,
                 max_tokens=request.expected_output_len,
                 detokenize=not disable_detokenize,
             )
@@ -197,11 +215,19 @@ async def run_vllm_async(
                 )
             )
             sampling_params.append(
+                # SamplingParams(
+                #     n=n,
+                #     temperature=1.0,
+                #     top_p=1.0,
+                #     ignore_eos=True,
+                #     max_tokens=request.expected_output_len,
+                #     detokenize=not disable_detokenize,
+                # )
                 SamplingParams(
                     n=n,
-                    temperature=1.0,
+                    temperature=0,
                     top_p=1.0,
-                    ignore_eos=True,
+                    ignore_eos=False,
                     max_tokens=request.expected_output_len,
                     detokenize=not disable_detokenize,
                 )
@@ -376,6 +402,14 @@ def get_requests(args, tokenizer):
             dataset_cls = AIMODataset
             common_kwargs["dataset_subset"] = None
             common_kwargs["dataset_split"] = "train"
+        elif args.dataset_path in GSM8KDataset.SUPPORTED_DATASET_PATHS:
+            dataset_cls = GSM8KDataset
+            common_kwargs['dataset_subset'] = "main"
+            common_kwargs['dataset_split'] = "train"
+        elif args.dataset_path in CNNDailyMailDataset.SUPPORTED_DATASET_PATHS:
+            dataset_cls = CNNDailyMailDataset
+            common_kwargs['dataset_subset'] = '3.0.0'
+            common_kwargs['dataset_split'] = "train"
     else:
         raise ValueError(f"Unknown dataset name: {args.dataset_name}")
     # Remove None values
@@ -541,6 +575,8 @@ def validate_args(args):
         elif args.dataset_path in (
             InstructCoderDataset.SUPPORTED_DATASET_PATHS
             | AIMODataset.SUPPORTED_DATASET_PATHS
+            | GSM8KDataset.SUPPORTED_DATASET_PATHS
+            | CNNDailyMailDataset.SUPPORTED_DATASET_PATHS
         ):
             assert args.backend == "vllm", (
                 f"{args.dataset_path} needs to use vllm as the backend."
