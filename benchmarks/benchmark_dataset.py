@@ -55,20 +55,6 @@ class SampleRequest:
     multi_modal_data: Optional[Union[MultiModalDataDict, dict, list[dict]]] = None
     lora_request: Optional[LoRARequest] = None
 
-
-@dataclass
-class SampleRequestWithOutput:
-    """
-    Represents a single inference request along with its expected output.
-    """
-
-    prompt: Union[str, Any]
-    prompt_len: int
-    prompt_with_chat_template: Union[str, Any]
-    prompt_with_chat_template_len: int
-    expected_output_len: int
-    expected_output: str
-
 # -----------------------------------------------------------------------------
 # Benchmark Dataset Base Class
 # -----------------------------------------------------------------------------
@@ -919,44 +905,6 @@ class InstructCoderDataset(HuggingFaceDataset):
         self.maybe_oversample_requests(sampled_requests, num_requests)
         return sampled_requests
 
-    def sample_with_output(
-        self,
-        tokenizer: PreTrainedTokenizerBase,
-        num_requests: int,
-        output_len: Optional[int] = None,
-        enable_multimodal_chat: bool = False,
-        **kwargs,
-    ) -> list:
-        output_len = output_len if output_len is not None else self.DEFAULT_OUTPUT_LEN
-        sampled_requests = []
-        for item in self.data:
-            if len(sampled_requests) >= num_requests:
-                break
-            prompt = f"{item['input']}\n\n{item['instruction']} Just output \
-            the code, do not include any explanation."
-
-            # apply template
-            prompt_with_chat_template = tokenizer.apply_chat_template(
-                [{"role": "user", "content": prompt}],
-                add_generation_prompt=True,
-                tokenize=False,
-            )
-            prompt_len = len(tokenizer(prompt).input_ids)
-            prompt_with_chat_template_len = len(
-                tokenizer(prompt_with_chat_template).input_ids
-            )
-            sample_request = SampleRequestWithOutput(
-                prompt=prompt,
-                prompt_len=prompt_len,
-                prompt_with_chat_template=prompt_with_chat_template,
-                prompt_with_chat_template_len=prompt_with_chat_template_len,
-                expected_output=item['output'],
-                expected_output_len=len(tokenizer(item['output']).input_ids),
-            )
-            sampled_requests.append(sample_request)
-        self.maybe_oversample_requests(sampled_requests, num_requests)
-        return sampled_requests
-
 # -----------------------------------------------------------------------------
 # MT-Bench Dataset Implementation
 # -----------------------------------------------------------------------------
@@ -1243,54 +1191,6 @@ class ASRDataset(HuggingFaceDataset):
         self.maybe_oversample_requests(sampled_requests, num_requests)
         return sampled_requests
 
-class MTBenchDataset(HuggingFaceDataset):
-    """
-    MT-Bench Dataset.
-    https://huggingface.co/datasets/philschmid/mt-bench
-    We create a single turn dataset for MT-Bench.
-    This is similar to Spec decoding benchmark setup in vLLM
-    https://github.com/vllm-project/vllm/blob/9d98ab5ec/examples/offline_inference/eagle.py#L14-L18
-    """ # noqa: E501
-
-    DEFAULT_OUTPUT_LEN = 256  # avg len used in SD bench in vLLM
-    SUPPORTED_DATASET_PATHS = {
-        "philschmid/mt-bench",
-    }
-
-    def sample(self,
-               tokenizer: PreTrainedTokenizerBase,
-               num_requests: int,
-               output_len: Optional[int] = None,
-               enable_multimodal_chat: bool = False,
-               **kwargs) -> list:
-        output_len = (output_len
-                      if output_len is not None else self.DEFAULT_OUTPUT_LEN)
-        sampled_requests = []
-
-        for item in self.data:
-            if len(sampled_requests) >= num_requests:
-                break
-            prompt = item['turns'][0]
-
-            # apply template
-            prompt = tokenizer.apply_chat_template([{
-                "role": "user",
-                "content": prompt
-            }],
-                                                   add_generation_prompt=True,
-                                                   tokenize=False)
-
-            prompt_len = len(tokenizer(prompt).input_ids)
-            sampled_requests.append(
-                SampleRequest(
-                    prompt=prompt,
-                    prompt_len=prompt_len,
-                    expected_output_len=output_len,
-                ))
-        self.maybe_oversample_requests(sampled_requests, num_requests)
-        return sampled_requests
-
-
 class CNNDailyMailDataset(HuggingFaceDataset):
     """
     cnn_dailymail
@@ -1419,20 +1319,6 @@ Please generate the new code file in the "New file" section below.""" # noqa: E5
 
         return sampled_requests
 
-    def sample_with_output(
-        self,
-        tokenizer: PreTrainedTokenizerBase,
-        num_requests: int,
-        output_len: Optional[int] = None,
-        request_id_prefix: str = "",
-        min_distance: float = 0.0,
-        max_distance: float = 1.0,
-        **kwargs,
-    ) -> list:
-        raise NotImplementedError(
-            "sample_with_output is not implemented for BlazeditDataset"
-        )
-
 class GSM8KDataset(HuggingFaceDataset):
     """
     """  # noqa: E501
@@ -1474,3 +1360,100 @@ class GSM8KDataset(HuggingFaceDataset):
         self.maybe_oversample_requests(sampled_requests, num_requests)
         return sampled_requests
 
+
+class GPQADataset(HuggingFaceDataset):
+    """
+    GPQA (Google-Proof Q&A) Dataset.
+    https://huggingface.co/datasets/Idavidrein/gpqa
+
+    A challenging benchmark of multiple-choice questions written by domain experts
+    in biology, physics, and chemistry. Uses the zero-shot prompt format as specified
+    in the GPQA paper.
+
+    The dataset should be loaded with subset='gpqa_extended'.
+    """
+
+    DEFAULT_OUTPUT_LEN = 256  # Enough for "The correct answer is (X)"
+    SUPPORTED_DATASET_PATHS = {
+        "Idavidrein/gpqa",
+    }
+
+    def sample(
+        self,
+        tokenizer: PreTrainedTokenizerBase,
+        num_requests: int,
+        output_len: Optional[int] = None,
+        **kwargs,
+    ) -> list:
+        output_len = output_len if output_len is not None else self.DEFAULT_OUTPUT_LEN
+        sampled_requests = []
+
+        for item in self.data:
+            if len(sampled_requests) >= num_requests:
+                break
+
+            # Extract question - try different possible field names
+            question = item.get("Question") or item.get("question") or ""
+            if not question:
+                logger.warning("Skipping item without question field")
+                continue
+
+            # Build the multiple choice options
+            # GPQA typically has fields: Correct Answer, Incorrect Answer 1, 2, 3
+            # Try both capitalized and lowercase versions
+            choices = []
+
+            # Try to get the answers - handle different possible formats
+            correct = (item.get("Correct Answer") or
+                      item.get("correct_answer") or
+                      item.get("answer"))
+            incorrect_1 = (item.get("Incorrect Answer 1") or
+                          item.get("incorrect_answer_1"))
+            incorrect_2 = (item.get("Incorrect Answer 2") or
+                          item.get("incorrect_answer_2"))
+            incorrect_3 = (item.get("Incorrect Answer 3") or
+                          item.get("incorrect_answer_3"))
+
+            if correct:
+                choices.append(correct)
+            if incorrect_1:
+                choices.append(incorrect_1)
+            if incorrect_2:
+                choices.append(incorrect_2)
+            if incorrect_3:
+                choices.append(incorrect_3)
+
+            if len(choices) < 4:
+                logger.warning(
+                    "Skipping item with insufficient answer choices (%d found)",
+                    len(choices)
+                )
+                continue
+
+            # Format using the specified prompt template
+            prompt = f"""What is the correct answer to this question: {question}
+Choices:
+(A) {choices[0]}
+(B) {choices[1]}
+(C) {choices[2]}
+(D) {choices[3]}
+
+Format your response as follows: "The correct answer is (insert answer here)"."""
+
+            # Apply chat template
+            prompt = tokenizer.apply_chat_template(
+                [{"role": "user", "content": prompt}],
+                add_generation_prompt=True,
+                tokenize=False,
+            )
+
+            prompt_len = len(tokenizer(prompt).input_ids)
+            sampled_requests.append(
+                SampleRequest(
+                    prompt=prompt,
+                    prompt_len=prompt_len,
+                    expected_output_len=output_len,
+                )
+            )
+        self.maybe_oversample_requests(sampled_requests, num_requests)
+        return sampled_requests
