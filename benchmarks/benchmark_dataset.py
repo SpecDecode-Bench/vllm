@@ -55,20 +55,6 @@ class SampleRequest:
     multi_modal_data: Optional[Union[MultiModalDataDict, dict, list[dict]]] = None
     lora_request: Optional[LoRARequest] = None
 
-
-@dataclass
-class SampleRequestWithOutput:
-    """
-    Represents a single inference request along with its expected output.
-    """
-
-    prompt: Union[str, Any]
-    prompt_len: int
-    prompt_with_chat_template: Union[str, Any]
-    prompt_with_chat_template_len: int
-    expected_output_len: int
-    expected_output: str
-
 # -----------------------------------------------------------------------------
 # Benchmark Dataset Base Class
 # -----------------------------------------------------------------------------
@@ -916,44 +902,6 @@ class InstructCoderDataset(HuggingFaceDataset):
         self.maybe_oversample_requests(sampled_requests, num_requests)
         return sampled_requests
 
-    def sample_with_output(
-        self,
-        tokenizer: PreTrainedTokenizerBase,
-        num_requests: int,
-        output_len: Optional[int] = None,
-        enable_multimodal_chat: bool = False,
-        **kwargs,
-    ) -> list:
-        output_len = output_len if output_len is not None else self.DEFAULT_OUTPUT_LEN
-        sampled_requests = []
-        for item in self.data:
-            if len(sampled_requests) >= num_requests:
-                break
-            prompt = f"{item['input']}\n\n{item['instruction']} Just output \
-            the code, do not include any explanation."
-
-            # apply template
-            prompt_with_chat_template = tokenizer.apply_chat_template(
-                [{"role": "user", "content": prompt}],
-                add_generation_prompt=True,
-                tokenize=False,
-            )
-            prompt_len = len(tokenizer(prompt).input_ids)
-            prompt_with_chat_template_len = len(
-                tokenizer(prompt_with_chat_template).input_ids
-            )
-            sample_request = SampleRequestWithOutput(
-                prompt=prompt,
-                prompt_len=prompt_len,
-                prompt_with_chat_template=prompt_with_chat_template,
-                prompt_with_chat_template_len=prompt_with_chat_template_len,
-                expected_output=item['output'],
-                expected_output_len=len(tokenizer(item['output']).input_ids),
-            )
-            sampled_requests.append(sample_request)
-        self.maybe_oversample_requests(sampled_requests, num_requests)
-        return sampled_requests
-
 # -----------------------------------------------------------------------------
 # MT-Bench Dataset Implementation
 # -----------------------------------------------------------------------------
@@ -1240,54 +1188,6 @@ class ASRDataset(HuggingFaceDataset):
         self.maybe_oversample_requests(sampled_requests, num_requests)
         return sampled_requests
 
-class MTBenchDataset(HuggingFaceDataset):
-    """
-    MT-Bench Dataset.
-    https://huggingface.co/datasets/philschmid/mt-bench
-    We create a single turn dataset for MT-Bench.
-    This is similar to Spec decoding benchmark setup in vLLM
-    https://github.com/vllm-project/vllm/blob/9d98ab5ec/examples/offline_inference/eagle.py#L14-L18
-    """ # noqa: E501
-
-    DEFAULT_OUTPUT_LEN = 256  # avg len used in SD bench in vLLM
-    SUPPORTED_DATASET_PATHS = {
-        "philschmid/mt-bench",
-    }
-
-    def sample(self,
-               tokenizer: PreTrainedTokenizerBase,
-               num_requests: int,
-               output_len: Optional[int] = None,
-               enable_multimodal_chat: bool = False,
-               **kwargs) -> list:
-        output_len = (output_len
-                      if output_len is not None else self.DEFAULT_OUTPUT_LEN)
-        sampled_requests = []
-
-        for item in self.data:
-            if len(sampled_requests) >= num_requests:
-                break
-            prompt = item['turns'][0]
-
-            # apply template
-            prompt = tokenizer.apply_chat_template([{
-                "role": "user",
-                "content": prompt
-            }],
-                                                   add_generation_prompt=True,
-                                                   tokenize=False)
-
-            prompt_len = len(tokenizer(prompt).input_ids)
-            sampled_requests.append(
-                SampleRequest(
-                    prompt=prompt,
-                    prompt_len=prompt_len,
-                    expected_output_len=output_len,
-                ))
-        self.maybe_oversample_requests(sampled_requests, num_requests)
-        return sampled_requests
-
-
 class CNNDailyMailDataset(HuggingFaceDataset):
     """
     cnn_dailymail
@@ -1415,20 +1315,6 @@ Please generate the new code file in the "New file" section below.""" # noqa: E5
         self.maybe_oversample_requests(sampled_requests, num_requests)
 
         return sampled_requests
-
-    def sample_with_output(
-        self,
-        tokenizer: PreTrainedTokenizerBase,
-        num_requests: int,
-        output_len: Optional[int] = None,
-        request_id_prefix: str = "",
-        min_distance: float = 0.0,
-        max_distance: float = 1.0,
-        **kwargs,
-    ) -> list:
-        raise NotImplementedError(
-            "sample_with_output is not implemented for BlazeditDataset"
-        )
 
 class GSM8KDataset(HuggingFaceDataset):
     """
