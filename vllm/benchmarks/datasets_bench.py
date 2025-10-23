@@ -21,13 +21,13 @@ import logging
 import math
 import random
 from abc import ABC, abstractmethod
-from collections.abc import Callable, Iterator, Mapping
+from collections.abc import Iterator, Mapping
 from contextlib import suppress
 from copy import deepcopy
 from dataclasses import dataclass
 from functools import cache
 from io import BytesIO
-from typing import Any, cast
+from typing import Any, Callable, Optional, Union, cast
 
 import numpy as np
 from PIL import Image
@@ -41,11 +41,7 @@ from vllm.multimodal.image import convert_image_mode
 from vllm.transformers_utils.tokenizer import AnyTokenizer
 from vllm.utils import PlaceholderModule
 
-try:
-    from datasets import load_dataset
-except ImportError:
-    datasets = PlaceholderModule("datasets")
-    load_dataset = datasets.placeholder_attr("load_dataset")
+from datasets import load_dataset
 
 try:
     import pandas as pd
@@ -75,12 +71,12 @@ class SampleRequest:
     Represents a single inference request for benchmarking.
     """
 
-    prompt: str | list[str]
+    prompt: Union[str, list[str]]
     prompt_len: int
     expected_output_len: int
-    multi_modal_data: MultiModalDataDict | dict | list[dict] | None = None
-    lora_request: LoRARequest | None = None
-    request_id: str | None = None
+    multi_modal_data: Optional[Union[MultiModalDataDict, dict, list[dict]]] = None
+    lora_request: Optional[LoRARequest] = None
+    request_id: Optional[str] = None
 
 
 # -----------------------------------------------------------------------------
@@ -94,7 +90,7 @@ class BenchmarkDataset(ABC):
 
     def __init__(
         self,
-        dataset_path: str | None = None,
+        dataset_path: Optional[str] = None,
         random_seed: int = DEFAULT_SEED,
         disable_shuffle: bool = False,
         **kwargs,
@@ -119,7 +115,7 @@ class BenchmarkDataset(ABC):
     def apply_multimodal_chat_transformation(
         self,
         prompt: str,
-        mm_content: MultiModalDataDict | dict | list[dict] | None = None,
+        mm_content: Optional[Union[MultiModalDataDict, dict, list[dict]]] = None,
     ) -> list[dict]:
         """
         Transform a prompt and optional multimodal content into a chat format.
@@ -154,9 +150,9 @@ class BenchmarkDataset(ABC):
 
     def get_random_lora_request(
         self,
-        max_loras: int | None = None,
-        lora_path: str | None = None,
-    ) -> LoRARequest | None:
+        max_loras: Optional[int] = None,
+        lora_path: Optional[str] = None,
+    ) -> Optional[LoRARequest]:
         """
         Optionally select a random LoRA request.
 
@@ -384,7 +380,7 @@ def gen_prompt_decode_to_target_len(
     target_token_len: int,
     max_retry: int = 10,
     add_special_tokens: bool = False,
-    rng: np.random.Generator | None = None,
+    rng: Optional[np.random.Generator] = None,
 ) -> tuple[str, list[int]]:
     """
     Ensure decoded-then-encoded prompt length matches the target token length.
@@ -1054,9 +1050,9 @@ class ShareGPTDataset(BenchmarkDataset):
         self,
         tokenizer: PreTrainedTokenizerBase,
         num_requests: int,
-        lora_path: str | None = None,
-        max_loras: int | None = None,
-        output_len: int | None = None,
+        lora_path: Optional[str] = None,
+        max_loras: Optional[int] = None,
+        output_len: Optional[int] = None,
         enable_multimodal_chat: bool = False,
         request_id_prefix: str = "",
         no_oversample: bool = False,
@@ -1070,6 +1066,12 @@ class ShareGPTDataset(BenchmarkDataset):
             prompt, completion = (
                 entry["conversations"][0]["value"],
                 entry["conversations"][1]["value"],
+            )
+
+            prompt = tokenizer.apply_chat_template(
+                [{"role": "user", "content": prompt}],
+                add_generation_prompt=True,
+                tokenize=False,
             )
 
             lora_request = self.get_random_lora_request(
@@ -1518,6 +1520,27 @@ def get_samples(args, tokenizer) -> list[SampleRequest]:
             dataset_class = InstructCoderDataset
             args.hf_split = "train"
         elif (
+            args.dataset_path in CNNDailyMailDataset.SUPPORTED_DATASET_PATHS
+            or args.hf_name in CNNDailyMailDataset.SUPPORTED_DATASET_PATHS
+        ):
+            dataset_class = CNNDailyMailDataset
+            args.hf_split = "3.0.0"
+            args.hf_subset= "train"
+        elif (
+            args.dataset_path in GSM8KDataset.SUPPORTED_DATASET_PATHS
+            or args.hf_name in GSM8KDataset.SUPPORTED_DATASET_PATHS
+        ):
+            dataset_class = GSM8KDataset
+            args.hf_split = "main"
+            args.hf_subset = "train"
+        elif (
+            args.dataset_path in GPQADataset.SUPPORTED_DATASET_PATHS
+            or args.hf_name in GPQADataset.SUPPORTED_DATASET_PATHS
+        ):
+            dataset_class = GPQADataset
+            args.hf_split = "gpqa_main"
+            args.hf_subset = "train"
+        elif (
             args.dataset_path in MTBenchDataset.SUPPORTED_DATASET_PATHS
             or args.hf_name in MTBenchDataset.SUPPORTED_DATASET_PATHS
         ):
@@ -1584,7 +1607,7 @@ def get_samples(args, tokenizer) -> list[SampleRequest]:
 
         if dataset_class.IS_MULTIMODAL and not (
             args.backend in ("openai-chat", "openai-audio")
-            or "embeddings-" in args.backend
+            or "openai-embeddings-" in args.backend
         ):
             # multi-modal benchmark is only available on OpenAI Chat
             # endpoint-type.
@@ -1766,9 +1789,9 @@ class CustomDataset(BenchmarkDataset):
         self,
         tokenizer: PreTrainedTokenizerBase,
         num_requests: int,
-        lora_path: str | None = None,
-        max_loras: int | None = None,
-        output_len: int | None = None,
+        lora_path: Optional[str] = None,
+        max_loras: Optional[int] = None,
+        output_len: Optional[int] = None,
         enable_multimodal_chat: bool = False,
         skip_chat_template: bool = False,
         request_id_prefix: str = "",
@@ -1997,8 +2020,8 @@ class BurstGPTDataset(BenchmarkDataset):
         self,
         tokenizer: PreTrainedTokenizerBase,
         num_requests: int,
-        max_loras: int | None = None,
-        lora_path: str | None = None,
+        max_loras: Optional[int] = None,
+        lora_path: Optional[str] = None,
         request_id_prefix: str = "",
         no_oversample: bool = False,
         **kwargs,
@@ -2034,15 +2057,15 @@ class BurstGPTDataset(BenchmarkDataset):
 class HuggingFaceDataset(BenchmarkDataset):
     """Base class for datasets hosted on HuggingFace."""
 
-    SUPPORTED_DATASET_PATHS: set[str] | dict[str, Callable] = set()
+    SUPPORTED_DATASET_PATHS: Union[set[str], dict[str, Callable]] = set()
 
     def __init__(
         self,
         dataset_path: str,
         dataset_split: str,
         no_stream: bool = False,
-        dataset_subset: str | None = None,
-        hf_name: str | None = None,
+        dataset_subset: Optional[str] = None,
+        hf_name: Optional[str] = None,
         **kwargs,
     ) -> None:
         super().__init__(dataset_path=dataset_path, **kwargs)
@@ -2083,7 +2106,7 @@ class ConversationDataset(HuggingFaceDataset):
         self,
         tokenizer: PreTrainedTokenizerBase,
         num_requests: int,
-        output_len: int | None = None,
+        output_len: Optional[int] = None,
         enable_multimodal_chat: bool = False,
         request_id_prefix: str = "",
         no_oversample: bool = False,
@@ -2152,7 +2175,7 @@ class VisionArenaDataset(HuggingFaceDataset):
         self,
         tokenizer: PreTrainedTokenizerBase,
         num_requests: int,
-        output_len: int | None = None,
+        output_len: Optional[int] = None,
         enable_multimodal_chat: bool = False,
         request_id_prefix: str = "",
         no_oversample: bool = False,
@@ -2206,7 +2229,7 @@ class MMVUDataset(HuggingFaceDataset):
         self,
         tokenizer: PreTrainedTokenizerBase,
         num_requests: int,
-        output_len: int | None = None,
+        output_len: Optional[int] = None,
         enable_multimodal_chat: bool = False,
         request_id_prefix: str = "",
         no_oversample: bool = False,
@@ -2267,7 +2290,7 @@ class InstructCoderDataset(HuggingFaceDataset):
         self,
         tokenizer: PreTrainedTokenizerBase,
         num_requests: int,
-        output_len: int | None = None,
+        output_len: Optional[int] = None,
         enable_multimodal_chat: bool = False,
         skip_chat_template: bool = False,
         request_id_prefix: str = "",
@@ -2306,6 +2329,203 @@ class InstructCoderDataset(HuggingFaceDataset):
         )
         return sampled_requests
 
+# -----------------------------------------------------------------------------
+# CNN/DailyMail Dataset Implementation
+# -----------------------------------------------------------------------------
+class CNNDailyMailDataset(HuggingFaceDataset):
+    """
+    cnn_dailymail
+    This is similar to Spec decoding benchmark setup in vLLM
+    https://github.com/vllm-project/vllm/blob/9d98ab5ec/examples/offline_inference/eagle.py#L14-L18
+    """ # noqa: E501
+
+    DEFAULT_OUTPUT_LEN = 256  # avg len used in SD bench in vLLM
+    SUPPORTED_DATASET_PATHS = {
+        "abisee/cnn_dailymail",
+    }
+
+    def sample(self,
+               tokenizer: PreTrainedTokenizerBase,
+               num_requests: int,
+               output_len: Optional[int] = None,
+               enable_multimodal_chat: bool = False,
+               **kwargs) -> list:
+        output_len = (output_len
+                      if output_len is not None else self.DEFAULT_OUTPUT_LEN)
+        sampled_requests = []
+
+        for i, item in enumerate(self.data):
+            if len(sampled_requests) >= num_requests:
+                break
+            instruction = "Could you summarize the following article, " \
+            "please reuse text from the article if possible: "
+            prompt = instruction + item['article']
+
+            # apply template
+            prompt = tokenizer.apply_chat_template([{
+                "role": "user",
+                "content": prompt
+            }],
+                                                   add_generation_prompt=True,
+                                                   tokenize=False)
+
+            prompt_len = len(tokenizer(prompt).input_ids)
+            sampled_requests.append(
+                SampleRequest(
+                    prompt=prompt,
+                    prompt_len=prompt_len,
+                    expected_output_len=output_len,
+                    request_id=str(i),
+                ))
+        self.maybe_oversample_requests(sampled_requests, num_requests)
+        return sampled_requests
+
+# ----------------------------------------------------------------------------
+# GSM8K Dataset Implementation
+# ----------------------------------------------------------------------------
+class GSM8KDataset(HuggingFaceDataset):
+    """
+    """  # noqa: E501
+
+    DEFAULT_OUTPUT_LEN = 256  # avg len used in SD bench in vLLM
+    SUPPORTED_DATASET_PATHS = {
+        "openai/gsm8k",
+    }
+
+    def sample(self,
+               tokenizer: PreTrainedTokenizerBase,
+               num_requests: int,
+               output_len: Optional[int] = None,
+               **kwargs) -> list:
+        output_len = (output_len
+                      if output_len is not None else self.DEFAULT_OUTPUT_LEN)
+        sampled_requests = []
+
+        for i, item in enumerate(self.data):
+            if len(sampled_requests) >= num_requests:
+                break
+
+            prompt = item['question']
+            # apply template
+            prompt = tokenizer.apply_chat_template([{
+                "role": "user",
+                "content": prompt
+            }],
+                                                   add_generation_prompt=True,
+                                                   tokenize=False)
+
+            prompt_len = len(tokenizer(prompt).input_ids)
+            sampled_requests.append(
+                SampleRequest(
+                    prompt=prompt,
+                    prompt_len=prompt_len,
+                    expected_output_len=output_len,
+                    request_id=str(i),
+                ))
+        self.maybe_oversample_requests(sampled_requests, num_requests)
+        return sampled_requests
+
+# ----------------------------------------------------------------------------
+# GPQA Dataset Implementation
+# ----------------------------------------------------------------------------
+
+class GPQADataset(HuggingFaceDataset):
+    """
+    GPQA (Google-Proof Q&A) Dataset.
+    https://huggingface.co/datasets/Idavidrein/gpqa
+
+    A challenging benchmark of multiple-choice questions written by domain experts
+    in biology, physics, and chemistry. Uses the zero-shot prompt format as specified
+    in the GPQA paper.
+
+    The dataset should be loaded with subset='gpqa_extended'.
+    """
+
+    DEFAULT_OUTPUT_LEN = 256  # Enough for "The correct answer is (X)"
+    SUPPORTED_DATASET_PATHS = {
+        "Idavidrein/gpqa",
+    }
+
+    def sample(
+        self,
+        tokenizer: PreTrainedTokenizerBase,
+        num_requests: int,
+        output_len: Optional[int] = None,
+        **kwargs,
+    ) -> list:
+        output_len = output_len if output_len is not None else self.DEFAULT_OUTPUT_LEN
+        sampled_requests = []
+
+        for i, item in enumerate(self.data):
+            if len(sampled_requests) >= num_requests:
+                break
+
+            # Extract question - try different possible field names
+            question = item.get("Question") or item.get("question") or ""
+            if not question:
+                logger.warning("Skipping item without question field")
+                continue
+
+            # Build the multiple choice options
+            # GPQA typically has fields: Correct Answer, Incorrect Answer 1, 2, 3
+            # Try both capitalized and lowercase versions
+            choices = []
+
+            # Try to get the answers - handle different possible formats
+            correct = (item.get("Correct Answer") or
+                      item.get("correct_answer") or
+                      item.get("answer"))
+            incorrect_1 = (item.get("Incorrect Answer 1") or
+                          item.get("incorrect_answer_1"))
+            incorrect_2 = (item.get("Incorrect Answer 2") or
+                          item.get("incorrect_answer_2"))
+            incorrect_3 = (item.get("Incorrect Answer 3") or
+                          item.get("incorrect_answer_3"))
+
+            if correct:
+                choices.append(correct)
+            if incorrect_1:
+                choices.append(incorrect_1)
+            if incorrect_2:
+                choices.append(incorrect_2)
+            if incorrect_3:
+                choices.append(incorrect_3)
+
+            if len(choices) < 4:
+                logger.warning(
+                    "Skipping item with insufficient answer choices (%d found)",
+                    len(choices)
+                )
+                continue
+
+            # Format using the specified prompt template
+            prompt = f"""What is the correct answer to this question: {question}
+Choices:
+(A) {choices[0]}
+(B) {choices[1]}
+(C) {choices[2]}
+(D) {choices[3]}
+
+Format your response as follows: "The correct answer is (insert answer here)"."""
+
+            # Apply chat template
+            prompt = tokenizer.apply_chat_template(
+                [{"role": "user", "content": prompt}],
+                add_generation_prompt=True,
+                tokenize=False,
+            )
+
+            prompt_len = len(tokenizer(prompt).input_ids)
+            sampled_requests.append(
+                SampleRequest(
+                    prompt=prompt,
+                    prompt_len=prompt_len,
+                    expected_output_len=output_len,
+                    request_id=str(i),
+                )
+            )
+        self.maybe_oversample_requests(sampled_requests, num_requests)
+        return sampled_requests
 
 # -----------------------------------------------------------------------------
 # MT-Bench Dataset Implementation
@@ -2331,9 +2551,9 @@ class MTBenchDataset(HuggingFaceDataset):
         self,
         tokenizer: PreTrainedTokenizerBase,
         num_requests: int,
-        output_len: int | None = None,
+        output_len: Optional[int] = None,
         enable_multimodal_chat: bool = False,
-        skip_chat_template: bool = False,
+        skip_chat_template: bool = True,
         request_id_prefix: str = "",
         no_oversample: bool = False,
         **kwargs,
@@ -2397,7 +2617,7 @@ class BlazeditDataset(HuggingFaceDataset):
         self,
         tokenizer: PreTrainedTokenizerBase,
         num_requests: int,
-        output_len: int | None = None,
+        output_len: Optional[int] = None,
         skip_chat_template: bool = False,
         request_id_prefix: str = "",
         no_oversample: bool = False,
@@ -2478,7 +2698,7 @@ class AIMODataset(HuggingFaceDataset):
         self,
         tokenizer: PreTrainedTokenizerBase,
         num_requests: int,
-        output_len: int | None = None,
+        output_len: Optional[int] = None,
         request_id_prefix: str = "",
         no_oversample: bool = False,
         **kwargs,
@@ -2660,7 +2880,7 @@ class ASRDataset(HuggingFaceDataset):
         self,
         tokenizer: PreTrainedTokenizerBase,
         num_requests: int,
-        output_len: int | None = None,
+        output_len: Optional[int] = None,
         request_id_prefix: str = "",
         no_oversample: bool = False,
         **kwargs,
@@ -2738,7 +2958,7 @@ class MLPerfDataset(HuggingFaceDataset):
         self,
         tokenizer: PreTrainedTokenizerBase,
         num_requests: int,
-        output_len: int | None = None,
+        output_len: Optional[int] = None,
         request_id_prefix: str = "",
         no_oversample: bool = False,
         **kwargs,
@@ -2902,7 +3122,7 @@ class MMStarDataset(HuggingFaceDataset):
         self,
         tokenizer: PreTrainedTokenizerBase,
         num_requests: int,
-        output_len: int | None = None,
+        output_len: Optional[int] = None,
         enable_multimodal_chat: bool = False,
         request_id_prefix: str = "",
         no_oversample: bool = False,

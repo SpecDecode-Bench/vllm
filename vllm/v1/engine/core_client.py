@@ -264,7 +264,9 @@ class InprocClient(EngineCoreClient):
         self.engine_core = EngineCore(*args, **kwargs)
 
     def get_output(self) -> EngineCoreOutputs:
-        outputs, _ = self.engine_core.step_fn()
+        outputs, model_executed = self.engine_core.step_fn()
+        # Post-step hook to update draft tokens for spec decode
+        self.engine_core.post_step(model_executed)  # <-- ADDED THIS
         return outputs and outputs.get(0) or EngineCoreOutputs()
 
     def get_supported_tasks(self) -> tuple[SupportedTask, ...]:

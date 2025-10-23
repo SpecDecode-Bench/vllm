@@ -1,10 +1,11 @@
 # SPDX-License-Identifier: Apache-2.0
 # SPDX-FileCopyrightText: Copyright contributors to the vLLM project
 
+import time
 from transformers import AutoTokenizer
 
 from vllm import LLM, SamplingParams
-from vllm.benchmarks.datasets import add_dataset_parser, get_samples
+from vllm.benchmarks.datasets_bench import add_dataset_parser, get_samples
 from vllm.inputs import TokensPrompt
 from vllm.v1.metrics.reader import Counter, Vector
 
@@ -54,7 +55,7 @@ def parse_args():
         "--method",
         type=str,
         default="eagle",
-        choices=["ngram", "eagle", "eagle3", "mtp", "draft_model"],
+        choices=["none", "ngram", "eagle", "eagle3", "mtp", "draft_model"],
     )
     parser.add_argument("--num-spec-tokens", type=int, default=2)
     parser.add_argument("--prompt-lookup-max", type=int, default=5)
@@ -97,6 +98,8 @@ def main(args):
         prompts = get_samples(args, tokenizer)
         # add_special_tokens is False to avoid adding bos twice
         # when using chat templates
+        # TODO: remove later!
+        prompts = prompts[18:19]
         prompt_ids = [
             tokenizer.encode(prompt.prompt, add_special_tokens=False)
             for prompt in prompts
@@ -140,7 +143,8 @@ def main(args):
             "num_speculative_tokens": args.num_spec_tokens,
         }
     else:
-        raise ValueError(f"unknown method: {args.method}")
+        speculative_config = None
+        # raise ValueError(f"unknown method: {args.method}")
 
     llm = LLM(
         model=model_dir,
@@ -159,10 +163,20 @@ def main(args):
 
     sampling_params = SamplingParams(temperature=args.temp, max_tokens=args.output_len)
     if not args.custom_mm_prompts:
-        outputs = llm.generate(
-            [TokensPrompt(prompt_token_ids=x) for x in prompt_ids],
-            sampling_params=sampling_params,
-        )
+        duration = []
+        for i in range(3):
+            # time the generation
+            start_time = time.time()
+            outputs = llm.generate(
+                [TokensPrompt(prompt_token_ids=x) for x in prompt_ids],
+                sampling_params=sampling_params,
+            )
+            end_time = time.time() - start_time
+            duration.append(end_time)
+            print(f"Generation time for {len(prompt_ids)} prompts: {end_time:.2f} seconds")
+        # print average time
+        avg_time = sum(duration) / len(duration)
+        print(f"Average generation time for {len(prompt_ids)} prompts: {avg_time:.2f} seconds")
     else:
         outputs = llm.chat(prompts, sampling_params=sampling_params)
 
