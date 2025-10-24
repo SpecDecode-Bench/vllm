@@ -1,5 +1,5 @@
 from transformers import AutoTokenizer
-from common import MODEL_TO_NAMES, load_data
+from utils import MODEL_TO_NAMES, load_data
 import matplotlib.pyplot as plt
 
 

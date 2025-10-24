@@ -1,0 +1,2 @@
+# python /data/jerry/jerry-vllm-0.10.1-bench/vllm-edit/vllm/benchmarks/visualize/vis_acc.py 2>&1 | tee results_gpqa_main_eagle3_qwen3_8b.log
+python /data/jerry/jerry-vllm-0.10.1-bench/vllm-edit/vllm/benchmarks/visualize/vis_acc.py  2>&1 | tee results_cnn_eagle3_qwen3_8b.log

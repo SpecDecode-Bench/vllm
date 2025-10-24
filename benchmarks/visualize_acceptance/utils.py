@@ -1,11 +1,13 @@
 import json
+import argparse
 from dataclasses import dataclass
 
 MODEL_TO_NAMES = {
     "r1-distill-llama-8B" : "deepseek-ai/DeepSeek-R1-Distill-Llama-8B",
     "llama3-8B" : "meta-llama/Meta-Llama-3-8B-Instruct",
     "llama3.1-8B" : "meta-llama/Llama-3.1-8B-Instruct",
-    "llama3.1-70B" : "meta-llama/Llama-3.1-70B-Instruct",
+    "llama3-70B" : "meta-llama/Meta-Llama-3-70B",
+    "qwen3-8B" : "Qwen/Qwen3-8B",
 }
 
 @dataclass
@@ -48,9 +50,9 @@ def load_data(datapath, tokenizer, verbose=False):
             data = json.loads(line)
             probs = data['acc'].get('acc_prob', None)
             entropies = data['acc'].get('acc_entropy', None)
-            if probs == []: # we return empty list for ngram
+            if probs and probs[0] == []: # we return empty list for ngram
                 probs = None
-            if entropies == []: # we return empty list for ngram
+            if entropies and entropies[0] == []: # we return empty list for ngram
                 entropies = None
             stat = AccStats(
                 lens=data['acc']['acc_len'],
@@ -67,3 +69,38 @@ def load_data(datapath, tokenizer, verbose=False):
 
     print(f"Load {len(acceptance_stats)} with max length {max_length}")
     return acceptance_stats
+
+def parse_args():
+    """Parse command-line arguments for acceptance statistics visualization."""
+    parser = argparse.ArgumentParser(
+        description="Visualize acceptance statistics for speculative decoding"
+    )
+    parser.add_argument(
+        "--model",
+        type=str,
+        required=True,
+        choices=list(MODEL_TO_NAMES.keys()),
+        help="Model name to analyze"
+    )
+    parser.add_argument(
+        "--method",
+        type=str,
+        required=True,
+        choices=["ngram", "eagle", "eagle3", "draft_model"],
+        help="Decoding method (e.g., eagle, ngram)"
+    )
+    parser.add_argument(
+        "--dataset",
+        type=str,
+        required=True,
+        choices=["gsm8k", "cnndailymail", "instructcoder", "sharegpt", "aime", "gqpa-main"],
+        help="Dataset name (e.g., gsm8k, mtbench, cnndailymail)"
+    )
+    parser.add_argument(
+        "--datapath",
+        type=str,
+        default=None,
+        required=True,
+        help="Path to the acceptance stats JSONL file. If not provided, uses default path: /data/lily/batch-sd/data/{model}/{method}_{dataset}_acceptance_stats.jsonl"
+    )
+    return parser.parse_args()

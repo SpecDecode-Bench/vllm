@@ -162,6 +162,11 @@ class Scheduler(SchedulerInterface):
         )
         self.use_pp = self.parallel_config.pipeline_parallel_size > 1
 
+        # Acceptance related stats, for jsonl name: "acceptance_stats_{model}_{method}_{timestamp}.jsonl"
+        self.jsonl_name = f"acceptance_stats_{vllm_config.model_config.model.split("/")[1]}_" + \
+            f"{vllm_config.speculative_config.method}_" + \
+            f"{int(time.time())}.jsonl"
+
     def schedule(self) -> SchedulerOutput:
         # NOTE(woosuk) on the scheduling algorithm:
         # There's no "decoding phase" nor "prefill phase" in the scheduler.
@@ -1022,7 +1027,7 @@ class Scheduler(SchedulerInterface):
     def _free_request(self, request: Request) -> Optional[dict[str, Any]]:
         req_id = request.request_id
         data = self.acceptance_stats.pop(req_id)
-        with open('acceptance_stats.jsonl', 'a') as f:
+        with open(self.jsonl_name, 'a') as f:
             f.write(json.dumps({
                 "id": req_id,
                 "acc": data,

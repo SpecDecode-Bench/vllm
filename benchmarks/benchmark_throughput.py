@@ -29,6 +29,7 @@ from benchmark_dataset import (
     VisionArenaDataset,
     CNNDailyMailDataset,
     GSM8KDataset,
+    GPQADataset,
 )
 from benchmark_utils import convert_to_pytorch_benchmark_format, write_to_json
 from vllm.engine.arg_utils import AsyncEngineArgs, EngineArgs
@@ -98,12 +99,27 @@ def run_vllm(
     use_beam_search = False
 
     outputs = None
+    e2e_duration = 0.0
     if not use_beam_search:
-        start = time.perf_counter()
-        outputs = llm.generate(
-            prompts, sampling_params, lora_request=lora_requests, use_tqdm=True
-        )
-        end = time.perf_counter()
+        if "qwen" in EngineArgs.model:
+            batch_size = 1
+        else:
+            batch_size = len(prompts)
+        # start = time.perf_counter()
+        # outputs = llm.generate(
+        #     prompts, sampling_params, lora_request=lora_requests, use_tqdm=True
+        # )
+        # end = time.perf_counter()
+        for i in range(0, len(prompts), batch_size):
+            batch_start = time.perf_counter()
+            outputs = llm.generate(
+                prompts[i : i + batch_size],
+                sampling_params[i : i + batch_size], # use the same sampling_params for all batches
+                lora_request=None, # not using lora for now
+                use_tqdm=True,
+            )
+            batch_end = time.perf_counter()
+            e2e_duration += batch_end - batch_start
     else:
         assert lora_requests is None, "BeamSearch API does not support LoRA"
         prompts = [request.prompt for request in requests]
@@ -121,7 +137,8 @@ def run_vllm(
             ),
         )
         end = time.perf_counter()
-    return end - start, outputs
+        e2e_duration = end - start
+    return e2e_duration, outputs
 
 
 def run_vllm_chat(
@@ -224,7 +241,7 @@ async def run_vllm_async(
                 #     detokenize=not disable_detokenize,
                 # )
                 SamplingParams(
-                    n=n,
+                    # n=n,
                     temperature=0,
                     top_p=1.0,
                     ignore_eos=False,
@@ -410,6 +427,10 @@ def get_requests(args, tokenizer):
             dataset_cls = CNNDailyMailDataset
             common_kwargs['dataset_subset'] = '3.0.0'
             common_kwargs['dataset_split'] = "train"
+        elif args.dataset_path in GPQADataset.SUPPORTED_DATASET_PATHS:
+            dataset_cls = GPQADataset
+            common_kwargs['dataset_subset'] = "gpqa_main" # use gpqa_main for now
+            common_kwargs['dataset_split'] = "train"
     else:
         raise ValueError(f"Unknown dataset name: {args.dataset_name}")
     # Remove None values
@@ -423,7 +444,8 @@ def get_requests(args, tokenizer):
 )
 def main(args: argparse.Namespace):
     if args.seed is None:
-        args.seed = 0
+        # args.seed = 0
+        args.seed = 42
     print(args)
     random.seed(args.seed)
     # Sample the requests.
@@ -577,6 +599,7 @@ def validate_args(args):
             | AIMODataset.SUPPORTED_DATASET_PATHS
             | GSM8KDataset.SUPPORTED_DATASET_PATHS
             | CNNDailyMailDataset.SUPPORTED_DATASET_PATHS
+            | GPQADataset.SUPPORTED_DATASET_PATHS
         ):
             assert args.backend == "vllm", (
                 f"{args.dataset_path} needs to use vllm as the backend."

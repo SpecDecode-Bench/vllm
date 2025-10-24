@@ -432,12 +432,12 @@ class ShareGPTDataset(BenchmarkDataset):
             completion_ids = tokenizer(completion).input_ids
             prompt_len = len(prompt_ids)
             new_output_len = len(completion_ids) if output_len is None else output_len
-            if not is_valid_sequence(
-                prompt_len,
-                new_output_len,
-                skip_min_output_len_check=output_len is not None,
-            ):
-                continue
+            # if not is_valid_sequence(
+            #     prompt_len,
+            #     new_output_len,
+            #     skip_min_output_len_check=output_len is not None,
+            # ):
+            #     continue
             # TODO: Also support ShareGPT4Video.
             if image_path := entry.get("image"):
                 mm_content = process_image(image_path)
