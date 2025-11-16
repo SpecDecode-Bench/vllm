@@ -1072,6 +1072,7 @@ class ShareGPTDataset(BenchmarkDataset):
                 [{"role": "user", "content": prompt}],
                 add_generation_prompt=True,
                 tokenize=False,
+                enable_thinking=False,
             )
 
             lora_request = self.get_random_lora_request(
@@ -2313,6 +2314,7 @@ class InstructCoderDataset(HuggingFaceDataset):
                     [{"role": "user", "content": prompt}],
                     add_generation_prompt=True,
                     tokenize=False,
+                    enable_thinking=False,
                 )
 
             prompt_len = len(tokenizer(prompt).input_ids)
@@ -2366,8 +2368,9 @@ class CNNDailyMailDataset(HuggingFaceDataset):
                 "role": "user",
                 "content": prompt
             }],
-                                                   add_generation_prompt=True,
-                                                   tokenize=False)
+            add_generation_prompt=True,
+            tokenize=False,
+            enable_thinking=False)
 
             prompt_len = len(tokenizer(prompt).input_ids)
             sampled_requests.append(
@@ -2411,8 +2414,9 @@ class GSM8KDataset(HuggingFaceDataset):
                 "role": "user",
                 "content": prompt
             }],
-                                                   add_generation_prompt=True,
-                                                   tokenize=False)
+            add_generation_prompt=True,
+            tokenize=False,
+            enable_thinking=False)
 
             prompt_len = len(tokenizer(prompt).input_ids)
             sampled_requests.append(
