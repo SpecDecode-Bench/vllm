@@ -38,7 +38,8 @@ import numpy as np
 from tqdm.asyncio import tqdm
 from transformers import PreTrainedTokenizerBase
 
-from vllm.benchmarks.datasets import SampleRequest, add_dataset_parser, get_samples
+# from vllm.benchmarks.datasets import SampleRequest, add_dataset_parser, get_samples
+from vllm.benchmarks.datasets_bench import SampleRequest, add_dataset_parser, get_samples
 from vllm.benchmarks.lib.endpoint_request_func import (
     ASYNC_REQUEST_FUNCS,
     OPENAI_COMPATIBLE_BACKENDS,
@@ -196,6 +197,7 @@ async def get_request(
             # If burstiness is 1, it follows exponential distribution.
             delay_ts.append(np.random.gamma(shape=burstiness, scale=theta))
 
+    print("[DEBUG] Delay ts:", delay_ts)
     # Calculate the cumulative delay time from the first sent out requests.
     for i in range(1, len(delay_ts)):
         delay_ts[i] += delay_ts[i - 1]
@@ -1298,6 +1300,9 @@ async def main_async(args: argparse.Namespace) -> dict[str, Any]:
 
     # Load the dataset.
     input_requests = get_samples(args, tokenizer)
+    print(input_requests[18].prompt)
+    input_requests = input_requests[18:19]  # For quick test
+    print()
     goodput_config_dict = check_goodput_args(args)
 
     backend = args.backend
@@ -1318,6 +1323,9 @@ async def main_async(args: argparse.Namespace) -> dict[str, Any]:
             }.items()
             if v is not None
         }
+
+        sampling_params["max_tokens"] = 576
+        sampling_params["ignore_eos"] = False
 
         # Sampling parameters are only supported by openai-compatible backend.
         if sampling_params and args.backend not in OPENAI_COMPATIBLE_BACKENDS:

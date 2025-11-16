@@ -16,7 +16,8 @@ import uvloop
 from tqdm import tqdm
 from transformers import AutoModelForCausalLM, AutoTokenizer, PreTrainedTokenizerBase
 
-from vllm.benchmarks.datasets import (
+# from vllm.benchmarks.datasets import (
+from vllm.benchmarks.datasets_bench import (
     AIMODataset,
     BurstGPTDataset,
     ConversationDataset,
