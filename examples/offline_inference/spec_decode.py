@@ -99,7 +99,7 @@ def main(args):
         # add_special_tokens is False to avoid adding bos twice
         # when using chat templates
         # TODO: remove later!
-        prompts = prompts[18:19]
+        # prompts = prompts[10:19]
         prompt_ids = [
             tokenizer.encode(prompt.prompt, add_special_tokens=False)
             for prompt in prompts
@@ -163,20 +163,24 @@ def main(args):
 
     sampling_params = SamplingParams(temperature=args.temp, max_tokens=args.output_len)
     if not args.custom_mm_prompts:
-        duration = []
-        for i in range(3):
-            # time the generation
-            start_time = time.time()
-            outputs = llm.generate(
-                [TokensPrompt(prompt_token_ids=x) for x in prompt_ids],
-                sampling_params=sampling_params,
-            )
-            end_time = time.time() - start_time
-            duration.append(end_time)
-            print(f"Generation time for {len(prompt_ids)} prompts: {end_time:.2f} seconds")
-        # print average time
-        avg_time = sum(duration) / len(duration)
-        print(f"Average generation time for {len(prompt_ids)} prompts: {avg_time:.2f} seconds")
+        e2e_avg_duration = []
+        for token_ids in prompt_ids:
+            duration = []
+            for i in range(3):
+                # time the generation
+                start_time = time.time()
+                outputs = llm.generate(
+                    [TokensPrompt(prompt_token_ids=token_ids)],
+                    sampling_params=sampling_params,
+                )
+                end_time = time.time() - start_time
+                duration.append(end_time)
+                print(f"Generation time for {len(prompt_ids)} prompts: {end_time:.2f} seconds")
+            # print average time
+            avg_time = sum(duration) / len(duration)
+            print(f"Average generation time for {len(prompt_ids)} prompts: {avg_time:.2f} seconds")
+            e2e_avg_duration.append(avg_time)
+        print(f"Overall average generation time for {len(prompt_ids)} prompts: {sum(e2e_avg_duration)/len(e2e_avg_duration):.2f} seconds")
     else:
         outputs = llm.chat(prompts, sampling_params=sampling_params)
 

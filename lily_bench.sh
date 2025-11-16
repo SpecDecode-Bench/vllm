@@ -1,4 +1,4 @@
-export CUDA_VISIBLE_DEVICES=2
+export CUDA_VISIBLE_DEVICES=3
 export VLLM_DISABLE_COMPILE_CACHE=1
 # Set CUDA path
 export CUDA_HOME=/usr/local/cuda-12.8
@@ -25,8 +25,9 @@ VLLM_USE_V1=1 python examples/offline_inference/spec_decode.py \
     --gpu-memory-utilization 0.9 \
     --seed 42 \
     --output_len 8192 \
-    --print_output \
+    --disable-padded-drafter-batch \
     --enable-chunked-prefill \
+    # --print_output \
 
 
 # VLLM_USE_V1=1 python examples/offline_inference/spec_decode.py \
