@@ -49,9 +49,9 @@ python bench_latency.py --model "$model" \
                          --is_warmup 2>&1 | tee "$output_dir/warmup.log" > /dev/null
 echo "Warmup done."
 
-for dataset in instructcoder cnndailymail gsm8k
+for dataset in instructcoder cnndailymail sharegpt gsm8k
 do
-    for method in none draft_model
+    for method in draft_model
     do
         # Set possible spec_tokens values for each method
         if [ "$method" = "draft_model" ]; then

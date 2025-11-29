@@ -1,4 +1,4 @@
-export CUDA_VISIBLE_DEVICES=2
+export CUDA_VISIBLE_DEVICES=3
 
 export VLLM_DISABLE_COMPILE_CACHE=1
 # Set CUDA path
@@ -37,7 +37,7 @@ start_time=$(date +%s)
 num_reqs="500"
 max_tokens="8"
 # batch_sizes="1 8 16 32 64 128"
-batch_sizes="1 16 64"
+batch_sizes="1 16 64 128"
 
 # Warmup run
 python bench_latency.py --model "$model" \
@@ -49,9 +49,9 @@ python bench_latency.py --model "$model" \
                          --is_warmup 2>&1 | tee "$output_dir/warmup.log" > /dev/null
 echo "Warmup done."
 
-for dataset in sharegpt
+for dataset in cnndailymail gsm8k
 do
-    for method in draft_model none
+    for method in none
     do
         # Set possible spec_tokens values for each method
         if [ "$method" = "draft_model" ]; then
