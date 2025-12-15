@@ -67,6 +67,8 @@ from vllm.v1.serial_utils import MsgpackDecoder, MsgpackEncoder
 from vllm.v1.structured_output import StructuredOutputManager
 from vllm.version import __version__ as VLLM_VERSION
 
+from benchmarks.profiler import sd_profiler
+
 logger = init_logger(__name__)
 
 POLLING_TIMEOUT_S = 2.5
@@ -317,7 +319,22 @@ class EngineCore:
         # or finished and not yet removed from the batch.
         if not self.scheduler.has_requests():
             return {}, False
+
+        # Profile start step
+        sd_profiler.model = self.model_executor.model_config.model
+        sd_profiler.speculative_config = self.scheduler.vllm_config.speculative_config
+        sd_profiler.start_step()
+
         scheduler_output = self.scheduler.schedule()
+
+        num_speculative_tokens = 0
+        for spec_ids in scheduler_output.scheduled_spec_decode_tokens:
+            num_speculative_tokens += len(spec_ids)
+        sd_profiler.set_step_info(
+            num_speculative_tokens=num_speculative_tokens,
+            num_batched_tokens=scheduler_output.total_num_scheduled_tokens,
+        )
+
         model_output = self.execute_model_with_error_logging(
             self.model_executor.execute_model,  # type: ignore
             scheduler_output,
@@ -325,6 +342,9 @@ class EngineCore:
         engine_core_outputs = self.scheduler.update_from_output(
             scheduler_output, model_output
         )
+
+        # Profile end step
+        sd_profiler.end_step()
 
         return (engine_core_outputs, scheduler_output.total_num_scheduled_tokens > 0)
 

@@ -154,6 +154,8 @@ from .utils import (
     scatter_mm_placeholders,
 )
 
+from benchmarks.profiler import sd_profiler
+
 if TYPE_CHECKING:
     from vllm.model_executor.model_loader.tensorizer import TensorizerConfig
     from vllm.v1.core.sched.output import SchedulerOutput
@@ -2498,6 +2500,9 @@ class GPUModelRunner(LoRAModelRunnerMixin, KVConnectorModelRunnerMixin):
 
         # Run the model.
         # Use persistent buffers for CUDA graphs.
+        rank = torch.distributed.get_rank()
+        if rank == 0:
+            sd_profiler.start_verify()
         with (
             set_forward_context(
                 attn_metadata,
@@ -2518,6 +2523,8 @@ class GPUModelRunner(LoRAModelRunnerMixin, KVConnectorModelRunnerMixin):
                 inputs_embeds=inputs_embeds,
                 **model_kwargs,
             )
+        if rank == 0:
+            sd_profiler.end_verify()
 
         with record_function_or_nullcontext("Postprocess"):
             if self.use_aux_hidden_state_outputs:
@@ -2582,8 +2589,12 @@ class GPUModelRunner(LoRAModelRunnerMixin, KVConnectorModelRunnerMixin):
                     scheduler_output, self.input_batch, logits, self.device
                 )
 
+        if rank == 0:
+            sd_profiler.start_sample()
         with record_function_or_nullcontext("Sample"):
             sampler_output = self._sample(logits, spec_decode_metadata)
+        if rank == 0:
+            sd_profiler.end_sample()
 
         def propose_draft_token_ids(sampled_token_ids):
             assert spec_decode_common_attn_metadata is not None
@@ -2627,7 +2638,14 @@ class GPUModelRunner(LoRAModelRunnerMixin, KVConnectorModelRunnerMixin):
             # EAGLE and draft model speculative decoding can use the
             # GPU sampled tokens as inputs, and does not need
             # to wait for bookkeeping to finish.
+            print(f"[WARNING] this should not happen in our benchmarks")
+            print(f"use_padded_batch: {use_padded_batch}")
+            raise ValueError("this should not happen in our benchmarks")
+            if rank == 0:
+                sd_profiler.start_propose()
             propose_draft_token_ids(sampler_output.sampled_token_ids)
+            if rank == 0:
+                sd_profiler.end_propose(record=True)
 
         with record_function_or_nullcontext("Bookkeep"):
             (
@@ -2649,7 +2667,18 @@ class GPUModelRunner(LoRAModelRunnerMixin, KVConnectorModelRunnerMixin):
         if self.speculative_config and not use_padded_batch and input_fits_in_drafter:
             # ngram and other speculative decoding methods use the sampled
             # tokens on the CPU, so they are run after bookkeeping.
+            if rank == 0:
+                sd_profiler.start_propose()
             propose_draft_token_ids(valid_sampled_token_ids)
+            if rank == 0:
+                sd_profiler.end_propose(record=True)
+
+        # if not using speculative decoding, just record empty propose step
+        if not self.speculative_config:
+            if rank == 0:
+                sd_profiler.start_propose()
+            if rank == 0:
+                sd_profiler.end_propose(record=True)
 
         with record_function_or_nullcontext("EPLB"):
             self.eplb_step()
