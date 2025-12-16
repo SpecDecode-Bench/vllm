@@ -49,7 +49,7 @@ python bench_latency.py --model "$model" \
                          --is_warmup 2>&1 | tee "$output_dir/warmup.log" > /dev/null
 echo "Warmup done."
 
-for dataset in instructcoder cnndailymail sharegpt gsm8k
+for dataset in instructcoder
 do
     for method in none draft_model
     do
@@ -87,7 +87,7 @@ do
                 fi
             else
                 if python bench_latency.py --model "$model" \
-                    --draft_model meta-llama/Llama-3.2-1B \
+                    --draft_model meta-llama/Llama-3.2-1B-Instruct \
                     --max_model_len 8192 \
                     --method "$method" \
                     --dataset "$dataset" \

@@ -5,7 +5,7 @@ export VLLM_DISABLE_COMPILE_CACHE=1
 export CUDA_HOME=/usr/local/cuda-12.8
 export CUDADIR=/usr/local/cuda-12.8
 
-# Add CUDA to PATH (for binaries
+# Add CUDA to PATH (for binaries)
 export PATH=$CUDA_HOME/bin:$PATH
 
 # Add CUDA to LD_LIBRARY_PATH (for libraries)
@@ -49,10 +49,9 @@ python bench_latency.py --model "$model" \
                          --is_warmup 2>&1 | tee "$output_dir/warmup.log" > /dev/null
 echo "Warmup done."
 
-# for dataset in instructcoder cnndailymail sharegpt
-for dataset in cnndailymail
+for dataset in instructcoder
 do
-    for method in none
+    for method in draft_model
     do
         # Set possible spec_tokens values for each method
         if [ "$method" = "draft_model" ]; then
@@ -70,7 +69,7 @@ do
 
             if [ "$method" = "none" ]; then
                 # Run without draft model for method "none"
-                if python bench_latency.py --model "$model" \
+                if python bench_latency-290to500reqs.py --model "$model" \
                     --method "$method" \
                     --dataset "$dataset" \
                     --results_dir "$output_dir" \
@@ -87,7 +86,7 @@ do
                     echo "FAILURE: $dataset, $method, $num_spec_tokens, Time: ${run_elapsed}s" | tee -a "$output_dir/overview.log"
                 fi
             else
-                if python bench_latency.py --model "$model" \
+                if python bench_latency-290to500reqs.py --model "$model" \
                     --draft_model meta-llama/Llama-3.2-1B-Instruct \
                     --max_model_len 8192 \
                     --method "$method" \
