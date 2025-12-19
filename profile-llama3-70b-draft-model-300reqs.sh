@@ -34,10 +34,10 @@ cp "$0" "$output_dir/$script_name"
 start_time=$(date +%s)
 
 # Set default values for num_reqs and max_tokens
-num_reqs="300"
+num_reqs="10"
 max_tokens="8"
 # batch_sizes="1 8 16 32 64 128"
-batch_sizes="1 16 64 128"
+batch_sizes="128"
 
 # Warmup run
 python bench_latency.py --model "$model" \
@@ -49,9 +49,13 @@ python bench_latency.py --model "$model" \
                          --is_warmup 2>&1 | tee "$output_dir/warmup.log" > /dev/null
 echo "Warmup done."
 
+<<<<<<< Updated upstream
 for dataset in instructcoder
+=======
+for dataset in gsm8k
+>>>>>>> Stashed changes
 do
-    for method in none draft_model
+    for method in draft_model
     do
         # Set possible spec_tokens values for each method
         if [ "$method" = "draft_model" ]; then

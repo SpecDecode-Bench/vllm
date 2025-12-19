@@ -49,10 +49,21 @@ python bench_latency.py --model "$model" \
                          --is_warmup 2>&1 | tee "$output_dir/warmup.log" > /dev/null
 echo "Warmup done."
 
+<<<<<<< Updated upstream:profile-llama3-70b-draft-model.sh
 # for dataset in instructcoder cnndailymail sharegpt
 for dataset in cnndailymail
 do
     for method in none
+=======
+dataset="cnndailymail"
+
+# for dataset in cnndailymail instructcoder sharegpt gsm8k
+# for dataset in aime gpqa_main
+for batch_sizes in 1 64 128 512
+do
+    # for method in none ngram eagle3
+    for method in draft_model
+>>>>>>> Stashed changes:profile-llama3-70b-draft-model-perf-breakdown.sh
     do
         # Set possible spec_tokens values for each method
         if [ "$method" = "draft_model" ]; then

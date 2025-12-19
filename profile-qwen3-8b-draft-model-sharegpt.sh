@@ -1,5 +1,9 @@
+<<<<<<< Updated upstream:profile-qwen3-8b-draft-model-sharegpt.sh
 export CUDA_VISIBLE_DEVICES=2
 
+=======
+export CUDA_VISIBLE_DEVICES=3
+>>>>>>> Stashed changes:profile-draft-model-q3-perf-breakdown.sh
 export VLLM_DISABLE_COMPILE_CACHE=1
 # Set CUDA path
 export CUDA_HOME=/usr/local/cuda-12.8
@@ -49,8 +53,16 @@ python bench_latency.py --model "$model" \
                          --is_warmup 2>&1 | tee "$output_dir/warmup.log" > /dev/null
 echo "Warmup done."
 
+<<<<<<< Updated upstream:profile-qwen3-8b-draft-model-sharegpt.sh
 # for dataset in instructcoder gsm8k cnndailymail sharegpt
 for dataset in sharegpt
+=======
+dataset="cnndailymail"
+
+# for dataset in cnndailymail instructcoder sharegpt gsm8k
+# for dataset in aime gpqa_main
+for batch_sizes in 1 64 128 512
+>>>>>>> Stashed changes:profile-draft-model-q3-perf-breakdown.sh
 do
     for method in none
     do
