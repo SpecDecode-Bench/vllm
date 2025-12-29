@@ -502,7 +502,7 @@ class GPUModelRunner(LoRAModelRunnerMixin, KVConnectorModelRunnerMixin):
         )
 
         self.reorder_batch_threshold: int | None = None
-
+        self.acceptance_stats = {}
         # Attention layers that are only in the KVCacheConfig of the runner
         # (e.g., KV sharing, encoder-only attention), but not in the
         # KVCacheConfig of the scheduler.
@@ -2306,6 +2306,20 @@ class GPUModelRunner(LoRAModelRunnerMixin, KVConnectorModelRunnerMixin):
                     sampled_token_ids,
                     self.input_batch.vocab_size,
                 )
+
+            for i, token_ids in enumerate(valid_sampled_token_ids):
+                req_id = self.input_batch.req_ids[i]
+                if req_id not in self.acceptance_stats:
+                    self.acceptance_stats[req_id] = {
+                        'acc_len': [],
+                        'acc_prob': [],
+                        'acc_entropy': [],
+                    }
+                self.acceptance_stats[req_id]['acc_len'].append(len(token_ids))
+            # Force 1 generated token per request.
+            for i, token_ids in enumerate(valid_sampled_token_ids):
+                valid_sampled_token_ids[i] = token_ids[:1]
+
             # Mask out the sampled tokens that should not be sampled.
             for i in discard_sampled_tokens_req_indices:
                 valid_sampled_token_ids[int(i)].clear()
@@ -2663,6 +2677,7 @@ class GPUModelRunner(LoRAModelRunnerMixin, KVConnectorModelRunnerMixin):
             pooler_output=[],
             kv_connector_output=kv_connector_output,
             num_nans_in_logits=num_nans_in_logits,
+            acceptance_stats=self.acceptance_stats,
         )
 
         if not self.use_async_scheduling:

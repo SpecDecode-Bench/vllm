@@ -33,6 +33,7 @@ from vllm.v1.outputs import DraftTokenIds, KVConnectorOutput, ModelRunnerOutput
 from vllm.v1.request import Request, RequestStatus
 from vllm.v1.spec_decode.metrics import SpecDecodingStats
 from vllm.v1.structured_output import StructuredOutputManager
+import json
 
 logger = init_logger(__name__)
 
@@ -170,6 +171,12 @@ class Scheduler(SchedulerInterface):
             dcp_world_size=self.dcp_world_size,
         )
         self.use_pp = self.parallel_config.pipeline_parallel_size > 1
+
+        # Acceptance related stats, for jsonl name: "acceptance_stats_{model}_{method}_{timestamp}.jsonl"
+        self.jsonl_name = f"acceptance_stats_{vllm_config.model_config.model.split("/")[1]}_" + \
+            f"{vllm_config.speculative_config.method}_" + \
+            f"{int(time.time())}.jsonl"
+
 
     def schedule(self) -> SchedulerOutput:
         # NOTE(woosuk) on the scheduling algorithm:
@@ -920,6 +927,7 @@ class Scheduler(SchedulerInterface):
         pooler_outputs = model_runner_output.pooler_output
         num_nans_in_logits = model_runner_output.num_nans_in_logits
         kv_connector_output = model_runner_output.kv_connector_output
+        self.acceptance_stats = model_runner_output.acceptance_stats
 
         outputs: dict[int, list[EngineCoreOutput]] = defaultdict(list)
         spec_decoding_stats: SpecDecodingStats | None = None
@@ -1214,6 +1222,17 @@ class Scheduler(SchedulerInterface):
             self._free_request(request)
 
     def _free_request(self, request: Request) -> dict[str, Any] | None:
+        req_id = request.request_id
+        data = self.acceptance_stats.pop(req_id)
+        with open(self.jsonl_name, 'a') as f:
+            f.write(json.dumps({
+                "id": req_id,
+                "acc": data,
+                "prompt_token_ids": request.prompt_token_ids,
+                "generated_token_ids": request.output_token_ids._x
+                }))
+            f.write('\n')
+
         assert request.is_finished()
 
         delay_free_blocks, kv_xfer_params = self._connector_finished(request)

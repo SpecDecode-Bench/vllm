@@ -132,6 +132,8 @@ class ModelRunnerOutput:
     # req_id -> num_nans_in_logits
     num_nans_in_logits: dict[str, int] | None = None
 
+    acceptance_stats: dict[str, list] | None = None
+
 
 # ModelRunnerOutput wrapper for async scheduling.
 class AsyncModelRunnerOutput(ABC):
