@@ -72,7 +72,7 @@ class DraftModelProposer(SpecDecodeBaseProposer):
             arange=self.arange,
         )
 
-        draft_token_ids = super().propose(
+        draft_token_ids, draft_probs, draft_entropies= super().propose(
             target_token_ids=inputs.token_ids,
             target_positions=inputs.positions,
             common_attn_metadata=inputs.cad,
@@ -83,7 +83,7 @@ class DraftModelProposer(SpecDecodeBaseProposer):
             last_token_indices=None,
             mm_embed_inputs=None,
         )
-        return draft_token_ids
+        return draft_token_ids, draft_probs, draft_entropies
 
     def _raise_if_multimodal(self):
         if self.supports_mm_inputs:

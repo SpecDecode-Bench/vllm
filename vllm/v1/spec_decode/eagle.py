@@ -7,6 +7,8 @@ from importlib.util import find_spec
 import numpy as np
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
+from torch.distributions import Categorical
 
 from vllm.config import (
     CompilationLevel,
@@ -314,10 +316,22 @@ class SpecDecodeBaseProposer:
         sample_hidden_states = last_hidden_states[last_token_indices]
         logits = self.model.compute_logits(sample_hidden_states)
 
+        all_draft_probs = []
+        all_draft_entropy = []
+
         # Early exit if there is only one draft token to be generated.
         if self.num_speculative_tokens == 1:
             draft_token_ids = logits.argmax(dim=-1)
-            return draft_token_ids.view(-1, 1)
+
+            # Get the probabilities of the draft tokens.
+            probs = F.softmax(logits, dim=-1, dtype=torch.float32)
+            draft_probs = probs.gather(dim=1, index=draft_token_ids.unsqueeze(1))
+            dist = Categorical(logits=logits)
+            entropy = dist.entropy().unsqueeze(-1)  # [batch_size, 1]
+            all_draft_probs.append(draft_probs)
+            all_draft_entropy.append(entropy)
+
+            return draft_token_ids.view(-1, 1), all_draft_probs, all_draft_entropy
 
         if self.uses_mrope:
             positions = target_positions[:, last_token_indices]
@@ -342,6 +356,14 @@ class SpecDecodeBaseProposer:
             return torch.cat(draft_token_ids_list, dim=1)
 
         draft_token_ids = logits.argmax(dim=-1)
+
+        # Get the probabilities of the draft tokens.
+        probs = F.softmax(logits, dim=-1, dtype=torch.float32)
+        draft_probs = probs.gather(dim=1, index=draft_token_ids.unsqueeze(1))
+        dist = Categorical(logits=logits)
+        entropy = dist.entropy().unsqueeze(-1)  # [batch_size, 1]
+        all_draft_probs.append(draft_probs)
+        all_draft_entropy.append(entropy)
 
         if self.allowed_attn_types is not None and not isinstance(
             attn_metadata, self.allowed_attn_types
@@ -483,9 +505,17 @@ class SpecDecodeBaseProposer:
             draft_token_ids = logits.argmax(dim=-1)
             draft_token_ids_list.append(draft_token_ids)
 
+            # Get the probabilities of the draft tokens.
+            probs = F.softmax(logits, dim=-1, dtype=torch.float32)
+            draft_probs = probs.gather(dim=1, index=draft_token_ids.unsqueeze(1))
+            dist = Categorical(logits=logits)
+            entropy = dist.entropy().unsqueeze(-1)  # [batch_size, 1]
+            all_draft_probs.append(draft_probs)
+            all_draft_entropy.append(entropy)
+
         # [batch_size, num_speculative_tokens]
         draft_token_ids = torch.stack(draft_token_ids_list, dim=1)
-        return draft_token_ids
+        return draft_token_ids, all_draft_probs, all_draft_entropy
 
     def set_input_ids_first_pass(
         self,

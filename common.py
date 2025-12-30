@@ -71,7 +71,7 @@ def parse_args():
     )
     parser.add_argument(
         "--max_tokens",
-        type=int,
+        type=float,
         default=32,
         help="Maximum number of thousand (in units of 1024) tokens (used in sampling parameter).",
     )

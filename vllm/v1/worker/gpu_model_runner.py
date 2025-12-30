@@ -510,6 +510,8 @@ class GPUModelRunner(LoRAModelRunnerMixin, KVConnectorModelRunnerMixin):
 
         # Cached outputs.
         self._draft_token_ids: list[list[int]] | torch.Tensor | None = None
+        self._draft_probs: list[list[float]] | torch.Tensor | None = None
+        self._draft_entropies: list[list[float]] | torch.Tensor | None = None
         self.transfer_event = torch.cuda.Event()
         self.sampled_token_ids_pinned_cpu = torch.empty(
             (self.max_model_len, 1),
@@ -2602,7 +2604,7 @@ class GPUModelRunner(LoRAModelRunnerMixin, KVConnectorModelRunnerMixin):
         def propose_draft_token_ids(sampled_token_ids):
             assert spec_decode_common_attn_metadata is not None
             with record_function_or_nullcontext("Draft"):
-                self._draft_token_ids = self.propose_draft_token_ids(
+                self._draft_token_ids, self._draft_probs, self._draft_entropies = self.propose_draft_token_ids(
                     scheduler_output,
                     sampled_token_ids,
                     self.input_batch.sampling_metadata,
@@ -2641,6 +2643,7 @@ class GPUModelRunner(LoRAModelRunnerMixin, KVConnectorModelRunnerMixin):
             # EAGLE and draft model speculative decoding can use the
             # GPU sampled tokens as inputs, and does not need
             # to wait for bookkeeping to finish.
+            print("[WARNING] This should not happen!")
             propose_draft_token_ids(sampler_output.sampled_token_ids)
 
         with record_function_or_nullcontext("Bookkeep"):
@@ -2667,6 +2670,22 @@ class GPUModelRunner(LoRAModelRunnerMixin, KVConnectorModelRunnerMixin):
 
         with record_function_or_nullcontext("EPLB"):
             self.eplb_step()
+
+        for req_id in self.input_batch.req_ids:
+            if req_id not in self.acceptance_stats:
+                self.acceptance_stats[req_id] = {
+                    'acc_len': [],
+                    'acc_prob': [],
+                    'acc_entropy': [],
+                }
+            req_index = self.input_batch.req_id_to_index[req_id]
+            step_probs, step_entropy = [], []
+            for prob, entropy in zip(self._draft_probs, self._draft_entropies):
+                step_probs.append(prob[req_index].item())
+                step_entropy.append(entropy[req_index].item())
+
+            self.acceptance_stats[req_id]['acc_prob'].append(step_probs)
+            self.acceptance_stats[req_id]['acc_entropy'].append(step_entropy)
 
         output = ModelRunnerOutput(
             req_ids=req_ids_output_copy,
@@ -2844,7 +2863,7 @@ class GPUModelRunner(LoRAModelRunnerMixin, KVConnectorModelRunnerMixin):
             else:
                 mm_embed_inputs = None
 
-            draft_token_ids = self.drafter.propose(
+            draft_token_ids, draft_probs, draft_entropies = self.drafter.propose(
                 target_token_ids=target_token_ids,
                 target_positions=target_positions,
                 target_hidden_states=target_hidden_states,
@@ -2855,7 +2874,7 @@ class GPUModelRunner(LoRAModelRunnerMixin, KVConnectorModelRunnerMixin):
                 mm_embed_inputs=mm_embed_inputs,
             )
 
-        return draft_token_ids
+        return draft_token_ids, draft_probs, draft_entropies
 
     def update_config(self, overrides: dict[str, Any]) -> None:
         allowed_config_names = {"load_config", "model_config"}
