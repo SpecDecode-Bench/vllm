@@ -196,6 +196,7 @@ class EagleProposer:
             )
             if self.method == "deepseek_mtp":
                 last_hidden_states = ret_hidden_states
+                hidden_states = last_hidden_states # https://github.com/vllm-project/vllm/pull/24056/files
             else:
                 last_hidden_states, hidden_states = ret_hidden_states
         sample_hidden_states = last_hidden_states[last_token_indices]
