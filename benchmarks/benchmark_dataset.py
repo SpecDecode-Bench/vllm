@@ -1219,11 +1219,11 @@ class CNNDailyMailDataset(HuggingFaceDataset):
 
             # apply template
             prompt = tokenizer.apply_chat_template([{
-                "role": "user",
-                "content": prompt
-            }],
-                                                   add_generation_prompt=True,
-                                                   tokenize=False)
+                    "role": "user",
+                    "content": prompt
+                }],
+                add_generation_prompt=True,
+                tokenize=False)
 
             prompt_len = len(tokenizer(prompt).input_ids)
             sampled_requests.append(
