@@ -38,7 +38,7 @@ batch_sizes="1 16 64 128"
 # Warmup run
 python bench_latency.py --model "$model" \
                          --method "none"  \
-                         --dataset "sharegpt" \
+                         --dataset "instructcoder" \
                          --num_spec_tokens "-1" \
                          --num_reqs "$num_reqs" \
                          --max_tokens "$max_tokens" \
