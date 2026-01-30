@@ -1,4 +1,17 @@
 export CUDA_VISIBLE_DEVICES=2
+# Set CUDA path
+export VLLM_DISABLE_COMPILE_CACHE=1
+export CUDA_HOME=/usr/local/cuda-12.8
+export CUDADIR=/usr/local/cuda-12.8
+
+# Add CUDA to PATH (for binaries)
+export PATH=$CUDA_HOME/bin:$PATH
+
+# Add CUDA to LD_LIBRARY_PATH (for libraries)
+export LD_LIBRARY_PATH=$CUDA_HOME/lib64:$LD_LIBRARY_PATH
+
+export VLLM_ENABLE_V1_MULTIPROCESSING=0
+export VLLM_USE_V1=1
 
 MODEL="meta-llama/Meta-Llama-3.1-8B-Instruct"
 
@@ -19,13 +32,13 @@ DATASETS=(
     "hf|likaixin/InstructCoder|512|200"
     "sharegpt|/data/lily/ShareGPT_V3_unfiltered_cleaned_split.json|512|200"
     "hf|abisee/cnn_dailymail|512|200"
-    "hf|openai/gsm8k|1024|200"
+    "hf|openai/gsm8k|512|200"
 )
 
 # Speculative configurations: method_name|config_json
 SPEC_CONFIGS=(
     'ngram|{"method": "ngram", "num_speculative_tokens": 20, "prompt_lookup_min": 3, "prompt_lookup_max": 7}'
-    'eagle|{"method": "eagle", "model": "yuhuili/EAGLE-LLaMA3-Instruct-8B", "num_speculative_tokens": 20}'
+    'eagle|{"method": "eagle", "model": "yuhuili/EAGLE-LLaMA3.1-Instruct-8B", "num_speculative_tokens": 20}'
     'eagle3|{"method": "eagle3", "model": "yuhuili/EAGLE3-LLaMA3.1-Instruct-8B", "num_speculative_tokens": 20}'
 )
 

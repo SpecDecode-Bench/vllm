@@ -1221,12 +1221,11 @@ class CNNDailyMailDataset(HuggingFaceDataset):
             prompt = instruction + item['article']
 
             # apply template
-            prompt = tokenizer.apply_chat_template([{
-                "role": "user",
-                "content": prompt
-            }],
-                                                   add_generation_prompt=True,
-                                                   tokenize=False)
+            prompt = tokenizer.apply_chat_template(
+                [{"role": "user", "content": prompt}],
+                add_generation_prompt=True,
+                tokenize=False,
+            )
 
             prompt_len = len(tokenizer(prompt).input_ids)
             sampled_requests.append(
@@ -1343,13 +1342,11 @@ class GSM8KDataset(HuggingFaceDataset):
 
             prompt = item['question']
             # apply template
-            prompt = tokenizer.apply_chat_template([{
-                "role": "user",
-                "content": prompt
-            }],
-                                                   add_generation_prompt=True,
-                                                   tokenize=False)
-
+            prompt = tokenizer.apply_chat_template(
+                [{"role": "user","content": prompt}],
+                add_generation_prompt=True,
+                tokenize=False,
+            )
             prompt_len = len(tokenizer(prompt).input_ids)
             sampled_requests.append(
                 SampleRequest(

@@ -101,15 +101,15 @@ def run_vllm(
     outputs = None
     e2e_duration = 0.0
     if not use_beam_search:
+        # used in all acceptance related profiling
         if "qwen" in EngineArgs.model:
             batch_size = 1
         else:
             batch_size = len(prompts)
-        # start = time.perf_counter()
-        # outputs = llm.generate(
-        #     prompts, sampling_params, lora_request=lora_requests, use_tqdm=True
-        # )
-        # end = time.perf_counter()
+
+        # used for simulator-related profiling
+        # batch_size = 1
+
         for i in range(0, len(prompts), batch_size):
             batch_start = time.perf_counter()
             outputs = llm.generate(
@@ -170,14 +170,6 @@ def run_vllm_chat(
     for request in requests:
         prompts.append(request.prompt)
         sampling_params.append(
-            # SamplingParams(
-            #     n=n,
-            #     temperature=1.0,
-            #     top_p=1.0,
-            #     ignore_eos=True,
-            #     max_tokens=request.expected_output_len,
-            #     detokenize=not disable_detokenize,
-            # )
             SamplingParams(
                 n=n,
                 temperature=0,
@@ -232,19 +224,11 @@ async def run_vllm_async(
                 )
             )
             sampling_params.append(
-                # SamplingParams(
-                #     n=n,
-                #     temperature=1.0,
-                #     top_p=1.0,
-                #     ignore_eos=True,
-                #     max_tokens=request.expected_output_len,
-                #     detokenize=not disable_detokenize,
-                # )
                 SamplingParams(
-                    # n=n,
-                    temperature=0,
+                    n=n,
+                    temperature=1.0,
                     top_p=1.0,
-                    ignore_eos=False,
+                    ignore_eos=True,
                     max_tokens=request.expected_output_len,
                     detokenize=not disable_detokenize,
                 )

@@ -16,15 +16,15 @@ start_time=$(date +%s)
 
 # Dataset configurations: dataset_name|dataset_path|output_len|num_prompts
 DATASETS=(
-    # "hf|likaixin/InstructCoder|512|200"
+    "hf|likaixin/InstructCoder|512|200"
     "sharegpt|/data/lily/ShareGPT_V3_unfiltered_cleaned_split.json|512|200"
     "hf|abisee/cnn_dailymail|512|200"
-    "hf|openai/gsm8k|1024|200"
+    "hf|openai/gsm8k|512|200"
 )
 
 # Speculative configurations: method_name|config_json
 SPEC_CONFIGS=(
-    # 'ngram|{"method": "ngram", "num_speculative_tokens": 20, "prompt_lookup_min": 3, "prompt_lookup_max": 7}'
+    'ngram|{"method": "ngram", "num_speculative_tokens": 20, "prompt_lookup_min": 3, "prompt_lookup_max": 7}'
     'eagle|{"method": "eagle", "model": "yuhuili/EAGLE-LLaMA3-Instruct-70B", "num_speculative_tokens": 20}'
 )
 
