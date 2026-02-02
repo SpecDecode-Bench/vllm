@@ -18,6 +18,7 @@ class SDProfiler:
         self.end_verify_time = -1
         self.num_batched_tokens = -1
         self.num_speculative_tokens = -1
+        self.num_tokens_in_kv_cache = -1
 
 
     def start_step(self):
@@ -30,6 +31,7 @@ class SDProfiler:
                 "speculative_config": self._config_to_dict(),
                 "num_batched_tokens": self.num_batched_tokens,
                 "num_speculative_tokens": self.num_speculative_tokens,
+                "num_tokens_in_kv_cache": self.num_tokens_in_kv_cache,
                 "start_step": self.start_time,
                 "end_step": self.end_time,
                 "start_propose": self.start_propose_time,
@@ -46,9 +48,11 @@ class SDProfiler:
 
     def set_step_info(self,
                       num_batched_tokens: int,
-                      num_speculative_tokens: int,):
+                      num_speculative_tokens: int,
+                      num_tokens_in_kv_cache: int):
         self.num_batched_tokens = num_batched_tokens
         self.num_speculative_tokens = num_speculative_tokens
+        self.num_tokens_in_kv_cache = num_tokens_in_kv_cache
 
     def start_propose(self):
         self.start_propose_time = time.perf_counter()

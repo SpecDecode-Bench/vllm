@@ -298,9 +298,23 @@ class EngineCore:
         num_speculative_tokens = 0
         for spec_ids in scheduler_output.scheduled_spec_decode_tokens:
             num_speculative_tokens += len(spec_ids)
+
+        # Estimate the number of tokens in KV cache by summing up
+        # num_computed_tokens for all running requests.
+        # This is only used to collect profiling data needed by the simulator.
+        num_tokens_in_kv_cache = -1
+        PROFILE_IN_KV_CACHE = False
+        if PROFILE_IN_KV_CACHE:
+            # Note: we assume no preemption.
+            # This also includes the scheduled tokens (i.e. those batched for the current forward pass).
+            num_tokens_in_kv_cache = sum(
+                request.num_computed_tokens for request in self.scheduler.running
+            )
+
         sd_profiler.set_step_info(
             num_speculative_tokens=num_speculative_tokens,
             num_batched_tokens=scheduler_output.total_num_scheduled_tokens,
+            num_tokens_in_kv_cache=num_tokens_in_kv_cache,
         )
         model_output = self.execute_model_with_error_logging(
             self.model_executor.execute_model,  # type: ignore
