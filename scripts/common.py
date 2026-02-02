@@ -2,10 +2,17 @@ import argparse
 import os
 from collections import defaultdict
 import json
+import sys
+
+# Add parent directory to path to import benchmarks module
+script_dir = os.path.dirname(os.path.abspath(__file__))
+parent_dir = os.path.dirname(script_dir)
+if parent_dir not in sys.path:
+    sys.path.insert(0, parent_dir)
 
 SEED=42
 
-from vllm.benchmarks.datasets_bench import (ShareGPTDataset,
+from benchmarks.benchmark_dataset import (ShareGPTDataset,
                                             CNNDailyMailDataset,
                                             GPQADataset,
                                             AIMODataset,
