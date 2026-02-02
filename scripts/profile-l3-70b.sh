@@ -48,7 +48,7 @@ dataset="cnndailymail"
 
 for batch_sizes in 1 64 128 512
 do
-    for method in none ngram eagle3
+    for method in none ngram eagle
     do
         # Set possible spec_tokens values for each method
         if [ "$method" = "none" ]; then
@@ -66,7 +66,7 @@ do
             log_file="$output_dir/${dataset}_${method}_${num_spec_tokens}.log"
             echo "====Running with method: $method on dataset: $dataset, num_spec_tokens: $num_spec_tokens" | tee -a "$log_file"
             run_start_time=$(date +%s)
-            if python bench_latency.py --model "$model" \
+            if python scripts/bench_latency.py --model "$model" \
                 --method "$method" \
                 --dataset "$dataset" \
                 --results_dir "$output_dir" \

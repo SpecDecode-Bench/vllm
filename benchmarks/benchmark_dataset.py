@@ -890,6 +890,7 @@ class InstructCoderDataset(HuggingFaceDataset):
                 [{"role": "user", "content": prompt}],
                 add_generation_prompt=True,
                 tokenize=False,
+                enable_reasoning=False,
             )
             prompt_len = len(tokenizer(prompt).input_ids)
             sampled_requests.append(
