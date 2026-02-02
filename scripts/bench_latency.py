@@ -4,8 +4,8 @@ import json
 import time
 
 # IMPORTANT: Set environment variables BEFORE importing vllm
-# os.environ["VLLM_ENABLE_V1_MULTIPROCESSING"] = "0"
-# os.environ["VLLM_USE_V1"] = "1"
+os.environ["VLLM_ENABLE_V1_MULTIPROCESSING"] = "0"
+os.environ["VLLM_USE_V1"] = "1"
 print(f"VLLM_ENABLE_V1_MULTIPROCESSING: {os.environ.get('VLLM_ENABLE_V1_MULTIPROCESSING')}"
       , flush=True)
 print(f"VLLM_USE_V1: {os.environ.get('VLLM_USE_V1')}"
@@ -123,9 +123,9 @@ if __name__ == "__main__":
         for i in range(NUM_REQUESTS):
             input_request = all_requests[i]
             prompts = [input_request.prompt] * batch_size
-            start_time = time.time()
+            start_time = time.perf_counter()
             outputs = llm.generate(prompts, sampling_params, use_tqdm=True)
-            end_time = time.time()
+            end_time = time.perf_counter()
             duration = end_time - start_time
 
             if args.method == "none":

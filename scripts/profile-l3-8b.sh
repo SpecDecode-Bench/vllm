@@ -1,21 +1,15 @@
-export CUDA_VISIBLE_DEVICES=1
+export CUDA_VISIBLE_DEVICES=3
 export VLLM_DISABLE_COMPILE_CACHE=1
 # Set CUDA path
 export CUDA_HOME=/usr/local/cuda-12.8
 export CUDADIR=/usr/local/cuda-12.8
 
-# Add CUDA to PATH (for binaries)
-export PATH=$CUDA_HOME/bin:$PATH
-
-# Add CUDA to LD_LIBRARY_PATH (for libraries)
-export LD_LIBRARY_PATH=$CUDA_HOME/lib64:$LD_LIBRARY_PATH
-
 export VLLM_ENABLE_V1_MULTIPROCESSING=0
 export VLLM_USE_V1=1
 
-# model=meta-llama/Llama-3.1-8B-Instruct
+model=meta-llama/Llama-3.1-8B-Instruct
 # model="meta-llama/Meta-Llama-3-70B-Instruct"
-model="Qwen/Qwen3-8B"
+# model="Qwen/Qwen3-8B"
 
 # Create a timestamped output directory for this run
 timestamp=$(date +"%Y%m%d_%H%M%S")
@@ -31,27 +25,22 @@ start_time=$(date +%s)
 
 # Set default values for num_reqs and max_tokens
 # for non-reasoning workloads and instruct models
-# num_reqs="500"
-# max_tokens="8"
-# batch_sizes="1 8 16 32 64 128"
-
-# For reasoning workloads and models
-num_reqs="90"
-max_tokens="32"
-batch_sizes="1 2 4 6 8"
+num_reqs="500"
+max_tokens="8"
 
 # Warmup run
 python bench_latency.py --model "$model" \
                          --method "none"  \
-                         --dataset "sharegpt" \
+                         --dataset "instructcoder" \
                          --num_spec_tokens "-1" \
                          --num_reqs "$num_reqs" \
                          --max_tokens "$max_tokens" \
                          --is_warmup 2>&1 | tee "$output_dir/warmup.log" > /dev/null
 echo "Warmup done."
 
-# for dataset in cnndailymail instructcoder sharegpt gsm8k
-for dataset in aime gpqa_main
+dataset="cnndailymail"
+
+for batch_sizes in 1 64 128 512
 do
     for method in none ngram eagle3
     do
@@ -59,7 +48,8 @@ do
         if [ "$method" = "none" ]; then
             spec_tokens_list="-1"
         elif [ "$method" = "ngram" ]; then
-            spec_tokens_list="5"
+            # spec_tokens_list="5"
+            spec_tokens_list="3"
         elif [ "$method" = "eagle" ]; then
             spec_tokens_list="3"
         elif [ "$method" = "eagle3" ]; then
@@ -77,7 +67,7 @@ do
                 --results_dir "$output_dir" \
                 --num_spec_tokens "$num_spec_tokens" \
                 --num_reqs "$num_reqs" \
-                --batch_sizes $batch_sizes \
+                --batch_sizes "$batch_sizes" \
                 --max_tokens "$max_tokens" 2>&1 | tee -a "$log_file" > /dev/null; then
                 run_end_time=$(date +%s)
                 run_elapsed=$((run_end_time - run_start_time))
@@ -95,5 +85,3 @@ done
 end_time=$(date +%s)
 elapsed=$((end_time - start_time))
 echo "Total profiling time: ${elapsed} seconds." | tee -a "$output_dir/overview.log"
-
-
