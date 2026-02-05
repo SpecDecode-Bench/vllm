@@ -32,31 +32,19 @@ cp "$0" "$output_dir/$script_name"
 start_time=$(date +%s)
 
 # Set default values for num_reqs and max_tokens
-num_reqs="500"
-max_tokens="8"
-batch_sizes="1 16 64 128"
-
-# Warmup run
-python bench_latency.py --model "$model" \
-                         --method "none"  \
-                         --dataset "instructcoder" \
-                         --num_spec_tokens "-1" \
-                         --num_reqs "$num_reqs" \
-                         --max_tokens "$max_tokens" \
-                         --is_warmup 2>&1 | tee "$output_dir/warmup.log" > /dev/null
-echo "Warmup done."
+num_reqs="200"
+max_tokens="0.5" # in units of 1024 tokens, e.g., 0.5 means 512 tokens
+batch_sizes="1"
 
 for dataset in cnndailymail instructcoder sharegpt gsm8k
 do
-    for method in none draft_model
+    for method in draft_model
     do
         # Set possible spec_tokens values for each method
         if [ "$method" = "draft_model" ]; then
-            spec_tokens_list="3"
-        elif [ "$method" = "none" ]; then
-            spec_tokens_list="-1"
+            spec_tokens_list="20"
         fi
-
+        
         for num_spec_tokens in $spec_tokens_list
         do
             log_file="$output_dir/${dataset}_${method}_${num_spec_tokens}.log"
