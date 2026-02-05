@@ -51,43 +51,23 @@ do
             echo "====Running with method: $method on dataset: $dataset, num_spec_tokens: $num_spec_tokens" | tee -a "$log_file"
             run_start_time=$(date +%s)
 
-            if [ "$method" = "none" ]; then
-                # Run without draft model for method "none"
-                if python bench_latency.py --model "$model" \
-                    --method "$method" \
-                    --dataset "$dataset" \
-                    --results_dir "$output_dir" \
-                    --num_spec_tokens "$num_spec_tokens" \
-                    --num_reqs "$num_reqs" \
-                    --batch_sizes $batch_sizes \
-                    --max_tokens "$max_tokens" 2>&1 | tee -a "$log_file" > /dev/null; then
-                    run_end_time=$(date +%s)
-                    run_elapsed=$((run_end_time - run_start_time))
-                    echo "SUCCESS: $dataset, $method, $num_spec_tokens, Time: ${run_elapsed}s" | tee -a "$output_dir/overview.log"
-                else
-                    run_end_time=$(date +%s)
-                    run_elapsed=$((run_end_time - run_start_time))
-                    echo "FAILURE: $dataset, $method, $num_spec_tokens, Time: ${run_elapsed}s" | tee -a "$output_dir/overview.log"
-                fi
+            # Run with draft model
+            if python bench_latency_all_in_one_batch.py --model "$model" \
+                --draft_model Qwen/Qwen3-0.6B \
+                --method "$method" \
+                --dataset "$dataset" \
+                --results_dir "$output_dir" \
+                --num_spec_tokens "$num_spec_tokens" \
+                --num_reqs "$num_reqs" \
+                --batch_sizes $batch_sizes \
+                --max_tokens "$max_tokens" 2>&1 | tee -a "$log_file" > /dev/null; then
+                run_end_time=$(date +%s)
+                run_elapsed=$((run_end_time - run_start_time))
+                echo "SUCCESS: $dataset, $method, $num_spec_tokens, Time: ${run_elapsed}s" | tee -a "$output_dir/overview.log"
             else
-                # Run with draft model for other methods
-                if python bench_latency.py --model "$model" \
-                    --draft_model Qwen/Qwen3-0.6B \
-                    --method "$method" \
-                    --dataset "$dataset" \
-                    --results_dir "$output_dir" \
-                    --num_spec_tokens "$num_spec_tokens" \
-                    --num_reqs "$num_reqs" \
-                    --batch_sizes $batch_sizes \
-                    --max_tokens "$max_tokens" 2>&1 | tee -a "$log_file" > /dev/null; then
-                    run_end_time=$(date +%s)
-                    run_elapsed=$((run_end_time - run_start_time))
-                    echo "SUCCESS: $dataset, $method, $num_spec_tokens, Time: ${run_elapsed}s" | tee -a "$output_dir/overview.log"
-                else
-                    run_end_time=$(date +%s)
-                    run_elapsed=$((run_end_time - run_start_time))
-                    echo "FAILURE: $dataset, $method, $num_spec_tokens, Time: ${run_elapsed}s" | tee -a "$output_dir/overview.log"
-                fi
+                run_end_time=$(date +%s)
+                run_elapsed=$((run_end_time - run_start_time))
+                echo "FAILURE: $dataset, $method, $num_spec_tokens, Time: ${run_elapsed}s" | tee -a "$output_dir/overview.log"
             fi
         done
     done
