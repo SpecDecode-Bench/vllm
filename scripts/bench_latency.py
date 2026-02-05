@@ -43,7 +43,7 @@ def get_llm(args):
             "model": args.draft_model,
             "num_speculative_tokens": args.num_spec_tokens,
             "disable_padded_drafter_batch": True,
-            "max_model_len": args.max_model_len,
+            # "max_model_len": args.max_model_len,
         }
     elif args.method == "deepseek_mtp" and args.model == "zai-org/GLM-4.5-Air":
         speculative_config = {

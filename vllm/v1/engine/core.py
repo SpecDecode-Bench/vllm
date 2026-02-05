@@ -67,6 +67,12 @@ from vllm.v1.serial_utils import MsgpackDecoder, MsgpackEncoder
 from vllm.v1.structured_output import StructuredOutputManager
 from vllm.version import __version__ as VLLM_VERSION
 
+# ensure benchmarks/ is importable
+import sys
+from pathlib import Path
+vllm_dir = str(Path(__file__).resolve().parents[3])
+if vllm_dir not in sys.path:
+    sys.path.insert(0, vllm_dir)
 from benchmarks.profiler import sd_profiler
 
 logger = init_logger(__name__)

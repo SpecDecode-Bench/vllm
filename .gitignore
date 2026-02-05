@@ -221,3 +221,4 @@ ep_kernels_workspace/
 
 results/
 *.jsonl
+*.json
