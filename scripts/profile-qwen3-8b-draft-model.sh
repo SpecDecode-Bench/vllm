@@ -48,7 +48,7 @@ echo "Warmup done."
 
 for dataset in instructcoder gsm8k cnndailymail sharegpt
 do
-    for method in draft_model none
+    for method in none draft_model
     do
         # Set possible spec_tokens values for each method
         if [ "$method" = "draft_model" ]; then
