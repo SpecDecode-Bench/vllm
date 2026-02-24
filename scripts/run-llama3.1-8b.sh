@@ -1,4 +1,8 @@
 export CUDA_VISIBLE_DEVICES=2
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+
 # Set CUDA path
 export VLLM_DISABLE_COMPILE_CACHE=1
 export CUDA_HOME=/usr/local/cuda-12.8
@@ -17,7 +21,7 @@ MODEL="meta-llama/Meta-Llama-3.1-8B-Instruct"
 
 # Create a timestamped output directory for this run
 timestamp=$(date +"%Y%m%d_%H%M%S")
-output_dir="results/run_$timestamp"
+output_dir="$SCRIPT_DIR/results/run_$timestamp"
 mkdir -p "$output_dir"
 
 # Save this shell script to the output directory for reproducibility
@@ -61,7 +65,7 @@ for dataset_config in "${DATASETS[@]}"; do
         echo "====Running with method: $spec_method on dataset: $dataset_path" | tee -a "$log_file"
         run_start_time=$(date +%s)
 
-        if python benchmarks/benchmark_throughput.py \
+        if python "$REPO_ROOT/benchmarks/benchmark_throughput.py" \
             --model "$MODEL" \
             --dataset-name "$dataset_name" \
             --dataset-path "$dataset_path" \
