@@ -22,6 +22,53 @@ from common import (parse_args,
                     SEED)
 SEED = 42
 
+def get_speculative_token_tree(num_spec_tokens):
+    if num_spec_tokens == 4:
+        return "[(0,), (1,), (0,0), (1,0)]"
+    # elif num_spec_tokens == 6:
+    #     return "[(0,), (1,), (0,0), (1,0), (0,1), (1,1)]"
+    elif num_spec_tokens == 6:
+        # ROOT
+        # ├── 0
+        # │  ├── 0
+        # │      └── 0
+        # └── 1
+        #    ├── 0
+        #        └── 0
+        return "[(0,), (1,), (0, 0), (1, 0), (0, 0, 0), (1, 0, 0)]"
+    elif num_spec_tokens == 10:
+        # ROOT
+        # ├── 0
+        # │  ├── 0
+        # │  │   └── 0
+        # │  └── 1
+        # │      └── 0
+        # └── 1
+        #    ├── 0
+        #    │  └── 0
+        #    └── 1
+        #       └── 0
+        return "[(0,), (1,), (0, 0), (0, 1), (1, 0), (1, 1), (0, 0, 0), (0, 1, 0), (1, 0, 0), (1, 1, 0)]"
+    elif num_spec_tokens == 14:
+        # ROOT
+        # ├── 0
+        # │  ├── 0
+        # │  │   └── 0
+        # │  │   └── 1
+        # │  └── 1
+        # │      └── 0
+        # │      └── 1
+        # └── 1
+        #    ├── 0
+        #    │  └── 0
+        #    │  └── 1
+        #    └── 1
+        #       └── 0
+        #       └── 1
+        return "[(0,), (1,), (0, 0), (0, 1), (1, 0), (1, 1), (0, 0, 0), (0, 0, 1), (0, 1, 0), (0, 1, 1), (1, 0, 0), (1, 0, 1), (1, 1, 0), (1, 1, 1)]"
+    else:
+        raise ValueError(f"Unsupported number of speculative tokens: {num_spec_tokens}")
+
 def get_llm(args):
     if args.method == "none":
         speculative_config = None
@@ -37,6 +84,7 @@ def get_llm(args):
             "method": args.method,
             "model": get_eagle_model(args.model, args.method == "eagle3"),
             "num_speculative_tokens": args.num_spec_tokens,
+            "speculative_token_tree": get_speculative_token_tree(args.num_spec_tokens),
         }
     elif args.method == "draft_model":
         assert args.draft_model is not None and args.draft_model != ""
@@ -57,6 +105,11 @@ def get_llm(args):
         speculative_config = {
             "method": args.method,
             "num_speculative_tokens": args.num_spec_tokens,
+        }
+    elif args.method == "suffix":
+        speculative_config = {
+            "method": "suffix",
+            "num_speculative_tokens": args.num_spec_tokens if args.num_spec_tokens > 0 else 32,
         }
     else:
         raise ValueError(f"Unsupported method: {args.method}")
@@ -152,7 +205,8 @@ if __name__ == "__main__":
                 num_drafts = 0
                 num_draft_tokens = 0
                 num_accepted_tokens = 0
-                acceptance_counts = [0] * args.num_spec_tokens
+                effective_num_spec_tokens = args.num_spec_tokens if args.num_spec_tokens > 0 else 32
+                acceptance_counts = [0] * effective_num_spec_tokens
                 for metric in metrics:
                     if metric.name == "vllm:spec_decode_num_drafts":
                         assert isinstance(metric, Counter)
@@ -180,7 +234,7 @@ if __name__ == "__main__":
                 # print("-" * 50)
 
                 # print acceptance at each token position
-                acceptance_rate_per_pos = [0.0] * args.num_spec_tokens
+                acceptance_rate_per_pos = [0.0] * effective_num_spec_tokens
                 for i in range(len(acceptance_counts)):
                     acceptance_rate_per_pos[i] = acceptance_counts[i] / num_drafts if num_drafts > 0 else 0
                     # print(f"acceptance at token {i}: {acceptance_rate:.2f}")
