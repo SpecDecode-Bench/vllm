@@ -33,7 +33,7 @@ start_time=$(date +%s)
 # Set default values for num_reqs and max_tokens
 num_reqs="100"
 max_tokens="8"
-batch_sizes="1 16 64 128"
+batch_sizes="64 128"
 
 # Warmup run
 python bench_latency.py --model "$model" \
@@ -45,7 +45,7 @@ python bench_latency.py --model "$model" \
                          --is_warmup 2>&1 | tee "$output_dir/warmup.log" > /dev/null
 echo "Warmup done."
 
-for dataset in instructcoder gsm8k cnndailymail sharegpt
+for dataset in sharegpt
 do
     for method in eagle3
     do
