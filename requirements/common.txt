@@ -54,3 +54,4 @@ transformers == 4.56.0
 huggingface-hub == 0.34.4
 pandas
 datasets == 4.0.0
+matplotlib

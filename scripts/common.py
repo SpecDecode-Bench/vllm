@@ -150,7 +150,10 @@ def get_dataset(args):
             random_seed=SEED,
         )
     elif args.dataset == "sharegpt":
-        dataset_path = "/data/lily/ShareGPT_V3_unfiltered_cleaned_split.json" # local path
+        dataset_path = os.environ.get(
+            "SHAREGPT_PATH",
+            "/data/lily/ShareGPT_V3_unfiltered_cleaned_split.json",
+        )
         dataset = ShareGPTDataset(
             dataset_path=dataset_path,
             random_seed=SEED,
