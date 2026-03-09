@@ -35,6 +35,7 @@ Each branch is a self-contained experiment. The scripts in each branch are tailo
 ## Setup: Building the Environment
 
 Each branch should be installed into its own conda environment to isolate dependencies (different vLLM versions, patches, etc.).
+This may take up to 30-50 minutes for the first time.
 
 ```bash
 # Checkout the branch you want to run
@@ -54,7 +55,7 @@ To rebuild (e.g. after pulling changes):
 ENV_DIR=/path/to/.envs/e2e-v0.10.1.1 bash scripts/rebuild_env.sh
 ```
 
-The environment is reused if it already exists — only the package reinstall runs.
+The environment is reused if it already exists, only the package reinstall runs.
 
 ---
 
@@ -69,9 +70,9 @@ warmup, all datasets × methods, and speedup figure generation.
 conda activate /path/to/.envs/e2e-v0.10.1.1
 cd scripts/
 
-bash run-l3-8b.sh    # Llama-3.1-8B,  1 GPU,  ~2-4 h
-bash run-l3-70b.sh   # Llama-3-70B,   4 GPUs, ~8-12 h
-bash run-q3-8b.sh    # Qwen3-8B,      1 GPU,  ~48 h (thinking mode)
+bash run-l3-8b.sh    # Llama-3.1-8B,  1 GPU, 8-12 hrs
+bash run-l3-70b.sh   # Llama-3-70B,   4 GPUs, >12 hrs
+bash run-q3-8b.sh    # Qwen3-8B,      1 GPU, ~48 hrs (thinking mode with long generation lengths)
 ```
 
 Set `CUDA_VISIBLE_DEVICES` at the top of each script before running.
