@@ -28,7 +28,7 @@ Each branch is a self-contained experiment. The scripts in each branch are tailo
 - `conda` (Miniconda or Anaconda)
 - CUDA 12.8 at `/usr/local/cuda-12.8`
 - HuggingFace model access for Llama-3 models
-- ShareGPT dataset at `/data/lily/ShareGPT_V3_unfiltered_cleaned_split.json` (for sharegpt workloads)
+- ShareGPT dataset (auto-downloaded by `run-*.sh`; see below for manual setup)
 
 ---
 
@@ -58,27 +58,55 @@ The environment is reused if it already exists — only the package reinstall ru
 
 ---
 
-## Running: End-to-End and Time-Breakdown Benchmarks
+## Running: End-to-End Benchmarks (perf/e2e-v0.10.1.1)
 
-### Run a single profile script
+### Quick start — run scripts (recommended)
+
+The `run-*.sh` scripts handle everything end-to-end: ShareGPT download,
+warmup, all datasets × methods, and speedup figure generation.
 
 ```bash
 conda activate /path/to/.envs/e2e-v0.10.1.1
 cd scripts/
-bash profile-l3-8b.sh
+
+bash run-l3-8b.sh    # Llama-3.1-8B,  1 GPU,  ~2-4 h
+bash run-l3-70b.sh   # Llama-3-70B,   4 GPUs, ~8-12 h
+bash run-q3-8b.sh    # Qwen3-8B,      1 GPU,  ~48 h (thinking mode)
 ```
 
-Each profile script:
-- Sets `CUDA_VISIBLE_DEVICES`, CUDA paths, and vLLM env flags
+Set `CUDA_VISIBLE_DEVICES` at the top of each script before running.
+For a quick smoke test, set `num_reqs=5` and `batch_sizes="1 16"`.
+
+ShareGPT is downloaded automatically on first run via `huggingface-cli`.
+To use a pre-existing copy instead:
+```bash
+export SHAREGPT_PATH=/path/to/ShareGPT_V3_unfiltered_cleaned_split.json
+bash run-l3-8b.sh
+```
+
+Each run script:
+- Downloads ShareGPT if not already present
 - Creates a timestamped `results/run_<timestamp>/` output directory
 - Copies itself there for reproducibility
 - Runs a warmup pass, then iterates over datasets × methods × spec-token counts
-- Logs per-run stdout to `<dataset>_<method>_<num_spec_tokens>.log`
+- Logs per-run stdout to `<dataset>_<method>_<k>.log`
 - Appends SUCCESS/FAILURE + elapsed time to `overview.log`
+- Calls `vis_speedup.py` to generate PDF speedup figures
 
----
+### Run scripts reference (perf/e2e-v0.10.1.1)
 
-## Profile Scripts Reference (perf/e2e-v0.10.1.1)
+| Script | Model | GPU(s) | Methods |
+|---|---|---|---|
+| `run-l3-8b.sh` | Llama-3.1-8B-Instruct | 1 (GPU 0) | none, ngram(3,5†), eagle(3), eagle3(3) |
+| `run-l3-70b.sh` | Meta-Llama-3-70B-Instruct | 4 (GPUs 4-7) | none, ngram(3,5†), eagle(3) |
+| `run-q3-8b.sh` | Qwen/Qwen3-8B | 1 (GPU 3) | none, ngram(3,5†), eagle3(3) |
+
+† ngram k=5 is run on instructcoder only.
+
+### Low-level profile scripts
+
+For finer-grained control (individual dataset/method runs), the underlying
+`profile-*.sh` scripts are also available:
 
 | Script | Model | GPU(s) | Datasets | Methods |
 |---|---|---|---|---|
@@ -135,7 +163,7 @@ Shared argument parsing, dataset loading, and EAGLE model name resolution. Suppo
 | Key | Source |
 |---|---|
 | `instructcoder` | HuggingFace: `likaixin/InstructCoder` |
-| `sharegpt` | Local: `/data/lily/ShareGPT_V3_unfiltered_cleaned_split.json` |
+| `sharegpt` | Local path via `$SHAREGPT_PATH` env var (auto-downloaded by `run-*.sh`) |
 | `cnndailymail` | HuggingFace: `abisee/cnn_dailymail` |
 | `gsm8k` | HuggingFace: `openai/gsm8k` |
 | `aime` | HuggingFace: `AI-MO/aimo-validation-aime` |
