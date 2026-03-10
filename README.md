@@ -70,9 +70,8 @@ warmup, all datasets × methods, and speedup figure generation.
 conda activate /path/to/.envs/e2e-v0.10.1.1
 cd scripts/
 
-bash run-l3-8b.sh    # Llama-3.1-8B,  1 GPU, 8-12 hrs
-bash run-l3-70b.sh   # Llama-3-70B,   4 GPUs, >12 hrs
-bash run-q3-8b.sh    # Qwen3-8B,      1 GPU, ~48 hrs (thinking mode with long generation lengths)
+bash run-l3-8b.sh    # Llama-3.1-8B,  1 GPU, ~1.5 days
+bash run-l3-70b.sh   # Llama-3-70B,   4 GPUs, ~1.5 days
 ```
 
 Set `CUDA_VISIBLE_DEVICES` at the top of each script before running.
