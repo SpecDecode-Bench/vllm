@@ -1,4 +1,4 @@
-export CUDA_VISIBLE_DEVICES=6
+export CUDA_VISIBLE_DEVICES=5
 
 export VLLM_DISABLE_COMPILE_CACHE=1
 # Set CUDA path
@@ -33,7 +33,7 @@ start_time=$(date +%s)
 # Set default values for num_reqs and max_tokens
 num_reqs="100"
 max_tokens="8"
-batch_sizes="128"
+batch_sizes="1 16 64 128"
 
 # Warmup run
 python bench_latency.py --model "$model" \
@@ -45,7 +45,7 @@ python bench_latency.py --model "$model" \
                          --is_warmup 2>&1 | tee "$output_dir/warmup.log" > /dev/null
 echo "Warmup done."
 
-for dataset in sharegpt
+for dataset in instructcoder cnndailymail gsm8k
 do
     for method in eagle3
     do
@@ -57,7 +57,7 @@ do
         elif [ "$method" = "eagle" ]; then
             spec_tokens_list="6"
         elif [ "$method" = "eagle3" ]; then
-            spec_tokens_list="6"
+            spec_tokens_list="21 25"
         fi
 
         for num_spec_tokens in $spec_tokens_list
