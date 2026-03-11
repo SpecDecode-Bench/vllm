@@ -10,10 +10,6 @@ if [[ ! -d "$ENV_DIR" ]]; then
   conda create -y -p "$ENV_DIR" "python=$PYTHON_VERSION"
 fi
 
-# Ensure uv exists inside the env (safe even if already installed)
-echo "[rebuild_env] ensuring uv exists"
-conda run -p "$ENV_DIR" python -m pip install -U pip uv
-
 # Install the branch (worktree) in editable mode
-echo "[rebuild_env] uv pip install -e ."
-conda run -p "$ENV_DIR" uv pip install --editable .
+echo "[rebuild_env] python -m pip install --editable . "
+conda run -p "$ENV_DIR" python -m pip install --editable .
