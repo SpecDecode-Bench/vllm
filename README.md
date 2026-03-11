@@ -47,8 +47,7 @@ ENV_DIR=/path/to/.envs/e2e-v0.10.1.1 bash scripts/rebuild_env.sh
 
 `rebuild_env.sh` will:
 1. Create a conda environment at `ENV_DIR` with Python 3.10 (if it doesn't exist)
-2. Install `uv` into the environment
-3. Install the current branch's vLLM in editable mode via `uv pip install -e .`
+2. Install the current branch's vLLM in editable mode via `python -m pip install --editable .`
 
 To rebuild (e.g. after pulling changes):
 ```bash
