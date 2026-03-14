@@ -70,7 +70,7 @@ def get_file(results_dir: str, method: str, dataset: str, model_key: str) -> str
 
 
 def load_method_data(method: str, dataset: str, model_key: str,
-                     results_dir: str, max_reqs: int = 100):
+                     results_dir: str, max_reqs: int = 500):
     """Load benchmark data for a method.
 
     Returns {batch_size: {request_id: record}}, or None if file is missing.
@@ -175,7 +175,7 @@ def draw(results_dir: str, dataset: str, model_key: str, figures_dir: str):
                      markersize=10)
 
     fontsize = 10
-    plt.ylim(bottom=0.5, top=ylim)
+    plt.ylim(bottom=0.9, top=ylim)
     plt.xticks(common_bs, common_bs, size=fontsize)
     plt.xlabel("Batch Size", fontsize=fontsize)
     plt.ylabel("Speedup", fontsize=fontsize)
