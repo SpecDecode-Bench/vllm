@@ -152,7 +152,7 @@ def get_dataset(args):
     elif args.dataset == "sharegpt":
         dataset_path = os.environ.get(
             "SHAREGPT_PATH",
-            "/data/lily/ShareGPT_V3_unfiltered_cleaned_split.json",
+            "/data/ShareGPT_V3_unfiltered_cleaned_split.json",
         )
         dataset = ShareGPTDataset(
             dataset_path=dataset_path,

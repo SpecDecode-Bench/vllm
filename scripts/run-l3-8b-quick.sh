@@ -17,17 +17,6 @@ num_reqs=100
 max_tokens=8
 batch_sizes="1 16 64 128"
 
-# Ensure ShareGPT dataset is available
-SHAREGPT_FILE="data/ShareGPT_V3_unfiltered_cleaned_split.json"
-if [ ! -f "$SHAREGPT_FILE" ]; then
-    echo "Downloading ShareGPT dataset..."
-    mkdir -p data
-    huggingface-cli download anon8231489123/ShareGPT_Vicuna_unfiltered \
-        ShareGPT_V3_unfiltered_cleaned_split.json \
-        --repo-type dataset --local-dir data/
-fi
-export SHAREGPT_PATH="$SHAREGPT_FILE"
-
 timestamp=$(date +"%Y%m%d_%H%M%S")
 output_dir="results/run_${timestamp}"
 mkdir -p "$output_dir"
