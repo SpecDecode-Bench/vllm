@@ -60,7 +60,18 @@ The environment is reused if it already exists, only the package reinstall runs.
 
 ## Running: End-to-End Benchmarks (perf/e2e-v0.10.1.1)
 
-### Quick start — run scripts (recommended)
+### Quick Experiment for AE Reviewers (recommended)
+
+This script runs a quick experiment for AE reviewers. It will only run the first 100 requests from the gsm8k dataset, and only for the Llama-3.1-8B model. At the end of the experiment, it will generate a speedup figure, which is within 5% difference from Figure 1a. in the paper.
+
+```bash
+conda activate /path/to/.envs/e2e-v0.10.1.1
+cd scripts/
+
+bash run-l3-8b-quick.sh    # Llama-3.1-8B, only first 100 requests from gsm8k, 1 GPU, ~1 hour
+```
+
+### Quick start — run scripts
 
 The `run-*.sh` scripts handle everything end-to-end: ShareGPT download,
 warmup, all datasets × methods, and speedup figure generation.
@@ -97,8 +108,7 @@ Each run script:
 | Script | Model | GPU(s) | Methods |
 |---|---|---|---|
 | `run-l3-8b.sh` | Llama-3.1-8B-Instruct | 1 (GPU 0) | none, ngram(3,5†), eagle(3), eagle3(3) |
-| `run-l3-70b.sh` | Meta-Llama-3-70B-Instruct | 4 (GPUs 4-7) | none, ngram(3,5†), eagle(3) |
-| `run-q3-8b.sh` | Qwen/Qwen3-8B | 1 (GPU 3) | none, ngram(3,5†), eagle3(3) |
+| `run-l3-70b.sh` | Meta-Llama-3-70B-Instruct | 4 (GPUs 0-3) | none, ngram(3,5†), eagle(3) |
 
 † ngram k=5 is run on instructcoder only.
 
