@@ -3,7 +3,7 @@
 # then generate speedup plots. Requires 4 GPUs.
 # Usage: bash run-l3-70b.sh
 
-export CUDA_VISIBLE_DEVICES=4,5,6,7
+export CUDA_VISIBLE_DEVICES=0,1,2,3
 export VLLM_DISABLE_COMPILE_CACHE=1
 export CUDA_HOME=/usr/local/cuda-12.8
 export CUDADIR=/usr/local/cuda-12.8
