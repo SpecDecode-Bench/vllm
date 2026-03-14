@@ -46,8 +46,7 @@ spec_tokens_map["ngram"]="3"
 spec_tokens_map["eagle"]="3"
 spec_tokens_map["eagle3"]="3"
 
-# for dataset in instructcoder cnndailymail sharegpt gsm8k; do
-for dataset in sharegpt; do
+for dataset in instructcoder cnndailymail gsm8k sharegpt; do
     for method in none ngram eagle eagle3; do
         # ngram5 (ngram k=5) is instructcoder-only
         k_list="${spec_tokens_map[$method]}"
