@@ -1,7 +1,7 @@
 #!/bin/bash
 # Profile Llama-3.1-8B-Instruct with all speculative decoding methods,
 # then generate speedup plots.
-# Usage: bash run-l3-8b.sh
+# Usage: bash run-l3-8b-quick.sh
 
 export CUDA_VISIBLE_DEVICES=0
 export VLLM_DISABLE_COMPILE_CACHE=1
