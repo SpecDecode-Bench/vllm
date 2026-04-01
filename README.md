@@ -130,14 +130,14 @@ For finer-grained control (individual dataset/method runs), the underlying
 
 ## Running: Acceptance Rate Benchmarks (perf/acc-v0.10.1.1)
 
-The acceptance rate branches use `benchmarks/benchmark_throughput.py` directly. Scripts live in `benchmarks/`:
+The acceptance rate branches use `scripts/benchmark_throughput.py` directly. Scripts live in `scripts/`:
 
 ```bash
 git checkout perf/acc-v0.10.1.1
 conda activate /path/to/.envs/acc-v0.10.1.1
-bash benchmarks/run-llama3.1-8b.sh
-bash benchmarks/run-llama3-70b.sh
-bash benchmarks/run-qwen3-8b.sh
+bash scripts/run-llama3.1-8b.sh
+bash scripts/run-llama3-70b.sh
+bash scripts/run-qwen3-8b.sh
 ```
 
 These scripts measure throughput (tokens/sec) with `--enforce-eager` across datasets and speculative configs, logging to `results/run_<timestamp>/`.
