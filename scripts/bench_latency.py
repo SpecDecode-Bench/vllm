@@ -123,6 +123,15 @@ if __name__ == "__main__":
         for i in range(NUM_REQUESTS):
             input_request = all_requests[i]
             prompts = [input_request.prompt] * batch_size
+            if args.method != "none":
+                try:
+                    metrics_before = llm.get_metrics()
+                except AssertionError as e:
+                    print(f"ERROR: Failed to get metrics: {e}")
+                    print(f"log_stats value: {llm.llm_engine.log_stats}")
+                    print(f"Skipping this request...")
+                    continue
+
             start_time = time.perf_counter()
             outputs = llm.generate(prompts, sampling_params, use_tqdm=True)
             end_time = time.perf_counter()
@@ -146,9 +155,28 @@ if __name__ == "__main__":
                     print(f"Skipping this request...")
                     continue
 
-                total_num_output_tokens = sum(
-                    len(output.outputs[0].token_ids) for output in outputs
-                )
+                prev_metrics = {
+                    (metric.name, tuple(sorted(metric.labels.items()))): metric
+                    for metric in metrics_before
+                }
+
+                def get_prev_metric(metric):
+                    return prev_metrics.get(
+                        (metric.name, tuple(sorted(metric.labels.items())))
+                    )
+
+                def counter_delta(metric):
+                    prev_metric = get_prev_metric(metric)
+                    if not isinstance(prev_metric, Counter):
+                        return metric.value
+                    return metric.value - prev_metric.value
+
+                def get_prev_vector_values(metric):
+                    prev_metric = get_prev_metric(metric)
+                    if not isinstance(prev_metric, Vector):
+                        return []
+                    return prev_metric.values
+
                 num_drafts = 0
                 num_draft_tokens = 0
                 num_accepted_tokens = 0
@@ -156,34 +184,42 @@ if __name__ == "__main__":
                 for metric in metrics:
                     if metric.name == "vllm:spec_decode_num_drafts":
                         assert isinstance(metric, Counter)
-                        num_drafts += metric.value
+                        num_drafts += counter_delta(metric)
                     elif metric.name == "vllm:spec_decode_num_draft_tokens":
                         assert isinstance(metric, Counter)
-                        num_draft_tokens += metric.value
+                        num_draft_tokens += counter_delta(metric)
                     elif metric.name == "vllm:spec_decode_num_accepted_tokens":
                         assert isinstance(metric, Counter)
-                        num_accepted_tokens += metric.value
+                        num_accepted_tokens += counter_delta(metric)
                     elif metric.name == "vllm:spec_decode_num_accepted_tokens_per_pos":
                         assert isinstance(metric, Vector)
-                        for pos in range(len(metric.values)):
-                            acceptance_counts[pos] += metric.values[pos]
+                        prev_values = get_prev_vector_values(metric)
+                        for pos, value in enumerate(
+                            metric.values[:args.num_spec_tokens]
+                        ):
+                            prev_value = 0
+                            if pos < len(prev_values):
+                                prev_value = prev_values[pos]
+                            acceptance_counts[pos] += value - prev_value
 
-                acceptance_length = 1 + (num_accepted_tokens / num_drafts) if num_drafts > 0 else 1
-                avg_acceptance_rate = num_accepted_tokens / num_draft_tokens if num_draft_tokens > 0 else 0.0
+                acceptance_length = 1
+                acceptance_rate_per_pos = [0] * args.num_spec_tokens
+                if num_drafts > 0:
+                    acceptance_length += num_accepted_tokens / num_drafts
+                    acceptance_rate_per_pos = [
+                        count / num_drafts for count in acceptance_counts
+                    ]
+
+                avg_acceptance_rate = 0.0
+                if num_draft_tokens > 0:
+                    avg_acceptance_rate = num_accepted_tokens / num_draft_tokens
 
                 # print("-" * 50)
-                # print(f"total_num_output_tokens: {total_num_output_tokens}")
                 # print(f"num_drafts: {num_drafts}")
                 # print(f"num_draft_tokens: {num_draft_tokens}")
                 # print(f"num_accepted_tokens: {num_accepted_tokens}")
                 # print(f"mean acceptance length: {acceptance_length:.2f}")
                 # print("-" * 50)
-
-                # print acceptance at each token position
-                acceptance_rate_per_pos = [0.0] * args.num_spec_tokens
-                for i in range(len(acceptance_counts)):
-                    acceptance_rate_per_pos[i] = acceptance_counts[i] / num_drafts if num_drafts > 0 else 0
-                    # print(f"acceptance at token {i}: {acceptance_rate:.2f}")
 
             # Basic result
             result = {
